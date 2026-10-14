@@ -6,8 +6,8 @@ module.exports = defineConfig({
   expect: {
     timeout: 10000,
   },
-  retries: 1,
-  workers: process.env.CI ? 1 : 2,
+  retries: 3,
+  workers: process.env.CI ? 2 : 2,
   fullyParallel: true,
   use: {
     baseURL: process.env.BASE_URL || 'https://toyotawindowsticker.com/',

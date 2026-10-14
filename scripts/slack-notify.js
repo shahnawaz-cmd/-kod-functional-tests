@@ -113,37 +113,34 @@ const blocks = [
   },
   {
     type: 'section',
-    fields: [
-      {
-        type: 'mrkdwn',
-        text: `*Status:*\n${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing* (${passedTests} Passed)`}`
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Pass Rate:*\n📊 *${passRate}%* (${totalTests} Total)`
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Target Scope:*\n🚗 *${siteCount} Domains* (Desktop & Mobile)`
-      },
-      {
-        type: 'mrkdwn',
-        text: `*Execution:*\n⚙️ Branch: \`${githubRef}\` (${githubEvent})`
-      }
-    ]
+    text: {
+      type: 'mrkdwn',
+      text: [
+        `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing* (${passedTests} Passed)`}`,
+        `*Pass Rate:* 📊 *${passRate}%* (${totalTests} total tests executed)`,
+        `*Target Scope:* 🚗 *${siteCount} Domains* (Desktop & Mobile)`,
+        `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
+      ].join('\n')
+    }
+  },
+  {
+    type: 'divider'
   }
 ];
 
 // Add Top Failures section if any failed
 if (failedSpecs.length > 0) {
-  const failureList = failedSpecs.slice(0, 4).join('\n');
-  const overflow = failedSpecs.length > 4 ? `\n_...and ${failedSpecs.length - 4} more failure(s)_` : '';
+  const failureList = failedSpecs.slice(0, 5).join('\n');
+  const overflow = failedSpecs.length > 5 ? `\n_...and ${failedSpecs.length - 5} more failure(s)_` : '';
   blocks.push({
     type: 'section',
     text: {
       type: 'mrkdwn',
       text: `*🚨 Top Failures:*\n${failureList}${overflow}`
     }
+  });
+  blocks.push({
+    type: 'divider'
   });
 }
 
@@ -177,7 +174,7 @@ actionElements.push({
   type: 'button',
   text: {
     type: 'plain_text',
-    text: '⚙️ GitHub Action',
+    text: '⚙️ GitHub Action Run',
     emoji: true
   },
   url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
@@ -194,7 +191,7 @@ blocks.push({
   elements: [
     {
       type: 'mrkdwn',
-      text: `Commit \`${githubSha}\` by *${githubActor}*  •  ${runTime}`
+      text: `Commit \`${githubSha}\` by *${githubActor}* • ${runTime}`
     }
   ]
 });

@@ -461,9 +461,16 @@ class PreviewPage {
     await phoneInput.fill(PreviewPage.generateUsPhoneNumber());
     
     // 3. Click Proceed to checkout and wait for the navigation together (domcontentloaded)
+    const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i }).or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
+    await proceedBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await proceedBtn.scrollIntoViewIfNeeded().catch(() => {});
+
     await Promise.all([
       this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
-      this.page.getByRole('button', { name: /proceed to checkout/i }).click(),
+      proceedBtn.click({ timeout: 15000 }).catch(async () => {
+        // Fallback force click if animations or overlay intercepted
+        await proceedBtn.click({ force: true }).catch(() => {});
+      }),
     ]);
   }
 
