@@ -1,0 +1,20 @@
+{
+  "targetUrl": "https://hondawindowsticker.com/",
+  "targetIp": "180.149.231.71",
+  "region": "NEW_ZEALAND",
+  "refreshes": [
+    {
+      "reloadIndex": 1,
+      "ipValue": "180.149.231.71",
+      "isMatched": true
+    },
+    {
+      "reloadIndex": 2,
+      "ipValue": "180.149.231.71",
+      "isMatched": true
+    }
+  ],
+  "newTabIp": "180.149.231.71",
+  "isMultiTabMatched": true,
+  "status": "VERIFIED_SESSION_STICKY"
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "checkout_flow",
+    "value": "streaming",
+    "domain": "gmcwindowsticker.com",
+    "path": "/",
+    "expires": 1792081593.436997,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_ip",
+    "value": "68.154.119.214",
+    "domain": "gmcwindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_country",
+    "value": "US",
+    "domain": "gmcwindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]

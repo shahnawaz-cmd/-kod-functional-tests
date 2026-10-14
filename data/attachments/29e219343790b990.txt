@@ -1,0 +1,24 @@
+🚀 [UI/UX Audit] Starting audit on Main Homepage (/) for project: ToyotaWindowSticker_MobileChrome
+📱 [UI/UX Audit] Applying standard 360px mobile viewport (360x740)...
+🔍 [HorizontalOverflowTask] Auditing viewport width: 360px (ToyotaWindowSticker_MobileChrome)
+📸 [STDOUT PROOF] Red-Border Highlighted Full-Page Screenshot (360px): file:////home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/overflow-defect-fullpage-homepage-360px-1791995156727.png
+🔍 [HeaderOverlapTask] Measuring clearance between header and main page heading...
+📊 [HeaderOverlapTask] Header bottom: 65px | Heading top: 132px | Clearance: 67px
+✅ [HeaderOverlapTask] Header has clear separation from page heading.
+ℹ️ [NavigationMenuTask] No hamburger menu found on this mobile view. Skipping toggle test.
+🔍 [ScrollFooterTask] Checking page scrollability and footer reachability...
+✅ [ScrollFooterTask] Page scrolled to 22345px. Footer in viewport: false (top: 20539px)
+🔍 [FaqAccordionTask] Found 6 FAQ accordion elements. Testing interactive items...
+ℹ️ [FaqAccordionTask] Accordion "Can you get a Toyota’s MSRP fr" expanded state: true
+ℹ️ [FaqAccordionTask] Accordion "Where can I find my Toyota VIN" expanded state: true
+ℹ️ [FaqAccordionTask] Accordion "Where is the VIN sticker on a " expanded state: true
+✅ [FaqAccordionTask] FAQ accordions interact smoothly without dead clicks.
+🔍 [FloatingWidgetOverlapTask] Scanning for fixed widgets covering primary CTA buttons...
+✅ [FloatingWidgetOverlapTask] No collisions between floating widgets and primary CTAs.
+✅ [CardStackingTask] Mobile card grids are properly responsive/stacked.
+✅ [ResponsiveTableTask] All wide tables are properly enclosed in responsive scroll wrappers.
+🔍 [BrokenAssetTask] Scanning page for broken image elements...
+✅ [BrokenAssetTask] All rendered images loaded successfully with valid dimensions.
+✅ [TouchTargetTask] All evaluated interactive buttons meet touch target size standards.
+📱 [MobileKeyboardTask] Simulating mobile keyboard pop-up (height 740px -> 444px)...
+✅ [MobileKeyboardTask] Input field (Y: 226px-282px) is clear of header (65px) and keyboard (444px).

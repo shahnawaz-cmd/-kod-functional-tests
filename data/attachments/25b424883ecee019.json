@@ -1,0 +1,20 @@
+{
+  "targetUrl": "https://gmcwindowsticker.com/",
+  "targetIp": "45.250.252.51",
+  "region": "CHILE",
+  "refreshes": [
+    {
+      "reloadIndex": 1,
+      "ipValue": "45.250.252.51",
+      "isMatched": true
+    },
+    {
+      "reloadIndex": 2,
+      "ipValue": "45.250.252.51",
+      "isMatched": true
+    }
+  ],
+  "newTabIp": "45.250.252.51",
+  "isMultiTabMatched": true,
+  "status": "VERIFIED_SESSION_STICKY"
+}

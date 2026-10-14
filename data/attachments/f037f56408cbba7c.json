@@ -1,0 +1,32 @@
+[
+  {
+    "name": "checkout_flow",
+    "value": "streaming",
+    "domain": "hondawindowsticker.com",
+    "path": "/",
+    "expires": 1792081579.443921,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_ip",
+    "value": "20.189.181.72",
+    "domain": "hondawindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_country",
+    "value": "US",
+    "domain": "hondawindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]

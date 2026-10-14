@@ -1,0 +1,8 @@
+
+──────────────────────────────────────────────────────────────────────
+💉 [GEO INJECTOR] Selected Region: Taiwan (Country: TW, IP: 185.189.161.137)
+🎯 [GEO INJECTOR] Target Currency Code: "TWD"
+──────────────────────────────────────────────────────────────────────
+🔄 [Pricing] Reloading /pricing to activate regional session context...
+📡 [API Response] Currency Code: "TWD" | Sign: "NT$" | Price: 804.55
+🖥️ [UI Render] Regional Currency "TWD" / "NT$" visible on page: ❌ NO

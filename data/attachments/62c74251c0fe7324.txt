@@ -1,0 +1,10 @@
+
+──────────────────────────────────────────────────────────────────────
+💉 [GEO INJECTOR] Selected Region: Chile (Country: CL, IP: 45.250.252.51)
+🎯 [GEO INJECTOR] Target Currency Code: "CLP"
+──────────────────────────────────────────────────────────────────────
+🔄 [Pricing] Reloading /pricing to activate regional session context...
+📡 [API Response] Currency Code: "CLP" | Sign: "CLP" | Price: 24561
+🖥️ [UI Render] Regional Currency "CLP" / "CLP" visible on page: ✅ YES
+✅ [SUCCESS] Pricing successfully localized to Chile (CLP)!
+📸 [STDOUT SCREENSHOT] Regional pricing screenshot captured: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/pricing-cl-clp-1791995175940.png

@@ -1,0 +1,21 @@
+🌐 [Pricing to Checkout] Checking current URL...
+🔄 [Pricing to Checkout] Navigating to /pricing...
+🏷️ [Pricing to Checkout] Switching to Window Sticker tab...
+✅ [Self-Healing Click] Located button "Window Sticker" using strategy #1
+🎯 [Pricing to Checkout] Locating Plan CTA button with self-healing strategies...
+✅ [Self-Healing Click] Located button "Get Sticker" using strategy #1
+✉️ [Pricing to Checkout] Filling self-healing email field with: rolex.rolls12+ye16s97@gmail.com
+✅ [Self-Healing Input] Located visible field "Email" using strategy #5
+🚀 [Pricing to Checkout] Clicking Proceed to Checkout CTA...
+✅ [Self-Healing Click] Located button "Proceed to Checkout" using strategy #1
+⏳ [Pricing to Checkout] Waiting for checkout redirection & document load...
+🔗 [Checkout URL Captured]: https://dodgewindowsticker.com/checkout?data=eyJjb2RlIjoiRE9ER0VXSU5ERVJTVDEiLCJ0eXBlIjoic3RpY2tlciIsInZpbiI6IkNSRURJVCIsImVtYWlsIjoicm9sZXgucm9sbHMxMit5ZTE2czk3QGdtYWlsLmNvbSIsIm5vcyI6MSwiaXRlbUxhYmVsIjoiQmFzaWMiLCJwcmljZSI6MjUsImN1cnJlbmN5U2lnbiI6IiQiLCJjdXJyZW5jeSI6IlVTRCIsInVzZXJUeXBlIjoidXNlciJ9
+
+================================================================================
+✅ [PRICING TO CHECKOUT NAVIGATION PASSED]
+📧 User Email:    rolex.rolls12+ye16s97@gmail.com
+🎯 Plan Type:     sticker
+🔗 Checkout URL:  https://dodgewindowsticker.com/checkout?data=eyJjb2RlIjoiRE9ER0VXSU5ERVJTVDEiLCJ0eXBlIjoic3RpY2tlciIsInZpbiI6IkNSRURJVCIsImVtYWlsIjoicm9sZXgucm9sbHMxMit5ZTE2czk3QGdtYWlsLmNvbSIsIm5vcyI6MSwiaXRlbUxhYmVsIjoiQmFzaWMiLCJwcmljZSI6MjUsImN1cnJlbmN5U2lnbiI6IiQiLCJjdXJyZW5jeSI6IlVTRCIsInVzZXJUeXBlIjoidXNlciJ9
+📸 Screenshot:    /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/pricing-to-checkout-sticker-1791995187761.png
+================================================================================
+

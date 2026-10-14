@@ -1,0 +1,32 @@
+[
+  {
+    "name": "checkout_flow",
+    "value": "streaming",
+    "domain": "audiwindowsticker.com",
+    "path": "/",
+    "expires": 1792081584.142468,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_country",
+    "value": "US",
+    "domain": "audiwindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_ip",
+    "value": "138.59.135.94",
+    "domain": "audiwindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]

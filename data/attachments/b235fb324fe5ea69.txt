@@ -1,0 +1,13 @@
+📡 [Pricing] Fetching /api/pricing?sticker=1&dealer=1 relative to current project domain...
+✅ [API Validated] Found 4 Personal plan(s): [
+  '1 Stickers = $25',
+  '2 Stickers = $29.99',
+  '5 Stickers = $59.99',
+  '10 Stickers = $79.99'
+]
+🔍 [Pricing] Validating Personal pricing cards render on page...
+   • Verified UI card: 1 item(s) at $25
+   • Verified UI card: 2 item(s) at $29.99
+   • Verified UI card: 5 item(s) at $59.99
+   • Verified UI card: 10 item(s) at $79.99
+✅ [UI Validated] All 4 Personal cards match backend API values.

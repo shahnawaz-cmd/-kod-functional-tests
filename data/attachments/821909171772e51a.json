@@ -1,0 +1,20 @@
+{
+  "targetUrl": "https://toyotawindowsticker.com/",
+  "targetIp": "172.99.190.215",
+  "region": "UK",
+  "refreshes": [
+    {
+      "reloadIndex": 1,
+      "ipValue": "172.99.190.215",
+      "isMatched": true
+    },
+    {
+      "reloadIndex": 2,
+      "ipValue": "172.99.190.215",
+      "isMatched": true
+    }
+  ],
+  "newTabIp": "172.99.190.215",
+  "isMultiTabMatched": true,
+  "status": "VERIFIED_SESSION_STICKY"
+}

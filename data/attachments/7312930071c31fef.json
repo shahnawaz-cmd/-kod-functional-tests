@@ -1,0 +1,32 @@
+[
+  {
+    "name": "checkout_flow",
+    "value": "streaming",
+    "domain": "toyotawindowsticker.com",
+    "path": "/",
+    "expires": 1792081568.416354,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_ip",
+    "value": "20.161.28.180",
+    "domain": "toyotawindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_country",
+    "value": "US",
+    "domain": "toyotawindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]

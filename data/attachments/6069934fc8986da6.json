@@ -1,0 +1,32 @@
+[
+  {
+    "name": "checkout_flow",
+    "value": "streaming",
+    "domain": "dodgewindowsticker.com",
+    "path": "/",
+    "expires": 1792081584.40634,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_country",
+    "value": "US",
+    "domain": "dodgewindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": false,
+    "secure": true,
+    "sameSite": "Lax"
+  },
+  {
+    "name": "cwa_ip",
+    "value": "45.250.252.51",
+    "domain": "dodgewindowsticker.com",
+    "path": "/",
+    "expires": -1,
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Lax"
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "vin": "4JGED6EB0JA121898",
+  "initialPlan": {
+    "planName": "5 Stickers",
+    "totalPlanPrice": "59.99",
+    "upsellPrice": "15.00"
+  },
+  "couponSummary": {
+    "reportPrice": 59.99,
+    "discountAmount": 12,
+    "addOnAmount": 15,
+    "totalAmount": 62.99,
+    "expectedDiscount": 11.998000000000001,
+    "expectedTotal": 62.99,
+    "orderSummary": "Order summary\nPACKAGE\n5 Window Stickers\n$59.99\nDiscount\n-$12.00\nADD-ON\nVehicle Report\n$15.00\nCoupon\nGET20\napplied — 20% off\nApply\nTotal\n$74.99\n$62.99\nSecure checkout\nInstant access"
+  },
+  "cachedEmailFlow": {
+    "cookieSaved": true,
+    "popupSkipped": true,
+    "newPlanSelected": {
+      "planName": "Unlimited Stickers",
+      "totalPlanPrice": "39.99",
+      "upsellPrice": null
+    }
+  }
+}

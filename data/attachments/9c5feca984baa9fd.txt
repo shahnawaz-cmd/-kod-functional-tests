@@ -1,0 +1,58 @@
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_ip = "20.189.181.72"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [3] cwa_country = "US"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+💉 [CWA IP INJECTOR] Injected 'cwa_ip': "180.149.231.71" (Host: hondawindowsticker.com, Root: .hondawindowsticker.com)
+──────────────────────────────────────────────────────────────────────
+
+
+══════════════════════════════════════════════════════════════════════
+🔄 [SESSION STICKINESS] Testing 2 consecutive page reload(s) in same browser
+══════════════════════════════════════════════════════════════════════
+   ⏳ Performing Reload #1...
+   • [Reload #1] Current 'cwa_ip': "180.149.231.71" | Expected: "180.149.231.71" ➡️ ✅ LOCKED
+   ⏳ Performing Reload #2...
+   • [Reload #2] Current 'cwa_ip': "180.149.231.71" | Expected: "180.149.231.71" ➡️ ✅ LOCKED
+✅ [SESSION STICKINESS] Successfully passed all 2 page reload checks!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window
+══════════════════════════════════════════════════════════════════════
+   • [Tab 2 URL]    https://hondawindowsticker.com/
+   • [Tab 2 cwa_ip] "180.149.231.71" | Expected: "180.149.231.71" ➡️ ✅ SYNCED
+✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_country = "US"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [3] cwa_ip = "180.149.231.71"
+       Domain: hondawindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🚗 [SESSION STICKINESS] Proceeding to VIN Decode flow with sticky session...
+══════════════════════════════════════════════════════════════════════
+[VIN Decode] Generated VIN (US): 2C4RC1BG6JR152063
+[VIN Decode] Clicking success element...
+Success condition met.
+📸 [SESSION STICKINESS] Preview screenshot captured and saved to: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/preview-sticky-session-1791995202198.png
+🚪 [SESSION STICKINESS] Page closed successfully.

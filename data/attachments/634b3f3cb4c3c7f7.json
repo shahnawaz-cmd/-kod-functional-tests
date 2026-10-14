@@ -1,0 +1,20 @@
+{
+  "targetUrl": "https://audiwindowsticker.com/",
+  "targetIp": "138.59.135.94",
+  "region": "COSTA_RICA",
+  "refreshes": [
+    {
+      "reloadIndex": 1,
+      "ipValue": "138.59.135.94",
+      "isMatched": true
+    },
+    {
+      "reloadIndex": 2,
+      "ipValue": "138.59.135.94",
+      "isMatched": true
+    }
+  ],
+  "newTabIp": "138.59.135.94",
+  "isMultiTabMatched": true,
+  "status": "VERIFIED_SESSION_STICKY"
+}

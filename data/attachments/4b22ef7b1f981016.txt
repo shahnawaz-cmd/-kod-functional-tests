@@ -1,0 +1,60 @@
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_ip = "20.161.28.180"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [3] cwa_country = "US"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+💉 [CWA IP INJECTOR] Injected 'cwa_ip': "172.99.190.215" (Host: toyotawindowsticker.com, Root: .toyotawindowsticker.com)
+──────────────────────────────────────────────────────────────────────
+
+
+══════════════════════════════════════════════════════════════════════
+🔄 [SESSION STICKINESS] Testing 2 consecutive page reload(s) in same browser
+══════════════════════════════════════════════════════════════════════
+   ⏳ Performing Reload #1...
+   • [Reload #1] Current 'cwa_ip': "172.99.190.215" | Expected: "172.99.190.215" ➡️ ✅ LOCKED
+   ⏳ Performing Reload #2...
+   • [Reload #2] Current 'cwa_ip': "172.99.190.215" | Expected: "172.99.190.215" ➡️ ✅ LOCKED
+✅ [SESSION STICKINESS] Successfully passed all 2 page reload checks!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window
+══════════════════════════════════════════════════════════════════════
+   • [Tab 2 URL]    https://toyotawindowsticker.com/
+   • [Tab 2 cwa_ip] "172.99.190.215" | Expected: "172.99.190.215" ➡️ ✅ SYNCED
+✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 4
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_country = "US"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [3] cwa_ip = "172.99.190.215"
+       Domain: toyotawindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [4] PHPSESSID = "bq1ekqet8j0qja8ms3cp85kov4"
+       Domain: toyotawindowsticker.com | Path: / | Secure: false | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🚗 [SESSION STICKINESS] Proceeding to VIN Decode flow with sticky session...
+══════════════════════════════════════════════════════════════════════
+[VIN Decode] Generated VIN (US): 1FMCU9GD3JUC83707
+[VIN Decode] Clicking success element...
+Success condition met.
+📸 [SESSION STICKINESS] Preview screenshot captured and saved to: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/preview-sticky-session-1791995186624.png
+🚪 [SESSION STICKINESS] Page closed successfully.

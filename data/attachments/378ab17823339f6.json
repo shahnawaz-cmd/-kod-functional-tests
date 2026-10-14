@@ -1,0 +1,20 @@
+{
+  "targetUrl": "https://cadillacwindowsticker.com/",
+  "targetIp": "129.232.237.178",
+  "region": "SOUTH_AFRICA",
+  "refreshes": [
+    {
+      "reloadIndex": 1,
+      "ipValue": "129.232.237.178",
+      "isMatched": true
+    },
+    {
+      "reloadIndex": 2,
+      "ipValue": "129.232.237.178",
+      "isMatched": true
+    }
+  ],
+  "newTabIp": "129.232.237.178",
+  "isMultiTabMatched": true,
+  "status": "VERIFIED_SESSION_STICKY"
+}

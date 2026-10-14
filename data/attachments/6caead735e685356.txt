@@ -1,0 +1,58 @@
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_ip = "172.208.13.51"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [3] cwa_country = "US"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+💉 [CWA IP INJECTOR] Injected 'cwa_ip': "138.59.135.94" (Host: audiwindowsticker.com, Root: .audiwindowsticker.com)
+──────────────────────────────────────────────────────────────────────
+
+
+══════════════════════════════════════════════════════════════════════
+🔄 [SESSION STICKINESS] Testing 2 consecutive page reload(s) in same browser
+══════════════════════════════════════════════════════════════════════
+   ⏳ Performing Reload #1...
+   • [Reload #1] Current 'cwa_ip': "138.59.135.94" | Expected: "138.59.135.94" ➡️ ✅ LOCKED
+   ⏳ Performing Reload #2...
+   • [Reload #2] Current 'cwa_ip': "138.59.135.94" | Expected: "138.59.135.94" ➡️ ✅ LOCKED
+✅ [SESSION STICKINESS] Successfully passed all 2 page reload checks!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window
+══════════════════════════════════════════════════════════════════════
+   • [Tab 2 URL]    https://audiwindowsticker.com/
+   • [Tab 2 cwa_ip] "138.59.135.94" | Expected: "138.59.135.94" ➡️ ✅ SYNCED
+✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_country = "US"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [3] cwa_ip = "138.59.135.94"
+       Domain: audiwindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🚗 [SESSION STICKINESS] Proceeding to VIN Decode flow with sticky session...
+══════════════════════════════════════════════════════════════════════
+[VIN Decode] Generated VIN (US): 2C4RC1BG6JR152062
+[VIN Decode] Clicking success element...
+Success condition met.
+📸 [SESSION STICKINESS] Preview screenshot captured and saved to: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/preview-sticky-session-1791995198463.png
+🚪 [SESSION STICKINESS] Page closed successfully.

@@ -1,0 +1,40 @@
+🚀 [ReferralTest] Navigating to URL with referral parameters: /?ref=TESTREF&utm_source=google&utm_campaign=x
+📋 [ReferralTest] Total cookies found: 6
+✅ [ReferralTest] Verified "ref" cookie saved: "ref=TESTREF"
+✅ [ReferralTest] Verified UTM/traffic_source cookie saved: "traffic_source=google--x"
+✅ Dynamically selected plan at index 2: "5 Stickers", Price: $59.99
+✅ Upsell selected. Price: $15.00
+✅ Order summary verified with valid checkout total: $74.99
+ℹ️ [TC_08] Email cache cookie verified: cart_vin
+✅ Dynamically selected plan at index 3: "Unlimited Stickers", Price: $39.99
+ℹ️ Unlimited plan selected: Upsell hidden.
+✅ [TC_08] Email popup did NOT appear (cached directly to checkout)
+✅ Order summary verified with valid checkout total: $39.99
+
+📋 [TC_08] Full Checkout, Coupon & Email Cache Summary:
+ {
+  "vin": "4JGED6EB0JA121898",
+  "initialPlan": {
+    "planName": "5 Stickers",
+    "totalPlanPrice": "59.99",
+    "upsellPrice": "15.00"
+  },
+  "couponSummary": {
+    "reportPrice": 59.99,
+    "discountAmount": 12,
+    "addOnAmount": 15,
+    "totalAmount": 62.99,
+    "expectedDiscount": 11.998000000000001,
+    "expectedTotal": 62.99,
+    "orderSummary": "Order summary\nPACKAGE\n5 Window Stickers\n$59.99\nDiscount\n-$12.00\nADD-ON\nVehicle Report\n$15.00\nCoupon\nGET20\napplied — 20% off\nApply\nTotal\n$74.99\n$62.99\nSecure checkout\nInstant access"
+  },
+  "cachedEmailFlow": {
+    "cookieSaved": true,
+    "popupSkipped": true,
+    "newPlanSelected": {
+      "planName": "Unlimited Stickers",
+      "totalPlanPrice": "39.99",
+      "upsellPrice": null
+    }
+  }
+}

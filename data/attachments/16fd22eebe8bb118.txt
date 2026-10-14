@@ -1,0 +1,58 @@
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_ip = "4.242.45.20"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [3] cwa_country = "US"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+💉 [CWA IP INJECTOR] Injected 'cwa_ip': "45.250.252.51" (Host: dodgewindowsticker.com, Root: .dodgewindowsticker.com)
+──────────────────────────────────────────────────────────────────────
+
+
+══════════════════════════════════════════════════════════════════════
+🔄 [SESSION STICKINESS] Testing 2 consecutive page reload(s) in same browser
+══════════════════════════════════════════════════════════════════════
+   ⏳ Performing Reload #1...
+   • [Reload #1] Current 'cwa_ip': "45.250.252.51" | Expected: "45.250.252.51" ➡️ ✅ LOCKED
+   ⏳ Performing Reload #2...
+   • [Reload #2] Current 'cwa_ip': "45.250.252.51" | Expected: "45.250.252.51" ➡️ ✅ LOCKED
+✅ [SESSION STICKINESS] Successfully passed all 2 page reload checks!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window
+══════════════════════════════════════════════════════════════════════
+   • [Tab 2 URL]    https://dodgewindowsticker.com/
+   • [Tab 2 cwa_ip] "45.250.252.51" | Expected: "45.250.252.51" ➡️ ✅ SYNCED
+✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_country = "US"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [3] cwa_ip = "45.250.252.51"
+       Domain: dodgewindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🚗 [SESSION STICKINESS] Proceeding to VIN Decode flow with sticky session...
+══════════════════════════════════════════════════════════════════════
+[VIN Decode] Generated VIN (US): 2C4RC1BG6JR152040
+[VIN Decode] Clicking success element...
+Success condition met.
+📸 [SESSION STICKINESS] Preview screenshot captured and saved to: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/preview-sticky-session-1791995199104.png
+🚪 [SESSION STICKINESS] Page closed successfully.

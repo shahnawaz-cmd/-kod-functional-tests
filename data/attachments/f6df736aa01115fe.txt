@@ -1,0 +1,58 @@
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_ip = "132.196.20.197"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+   [3] cwa_country = "US"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+──────────────────────────────────────────────────────────────────────
+💉 [CWA IP INJECTOR] Injected 'cwa_ip': "129.232.237.178" (Host: cadillacwindowsticker.com, Root: .cadillacwindowsticker.com)
+──────────────────────────────────────────────────────────────────────
+
+
+══════════════════════════════════════════════════════════════════════
+🔄 [SESSION STICKINESS] Testing 2 consecutive page reload(s) in same browser
+══════════════════════════════════════════════════════════════════════
+   ⏳ Performing Reload #1...
+   • [Reload #1] Current 'cwa_ip': "129.232.237.178" | Expected: "129.232.237.178" ➡️ ✅ LOCKED
+   ⏳ Performing Reload #2...
+   • [Reload #2] Current 'cwa_ip': "129.232.237.178" | Expected: "129.232.237.178" ➡️ ✅ LOCKED
+✅ [SESSION STICKINESS] Successfully passed all 2 page reload checks!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window
+══════════════════════════════════════════════════════════════════════
+   • [Tab 2 URL]    https://cadillacwindowsticker.com/
+   • [Tab 2 cwa_ip] "129.232.237.178" | Expected: "129.232.237.178" ➡️ ✅ SYNCED
+✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🍪 [COOKIE HELPER - ALL COOKIES CAPTURED] Total: 3
+══════════════════════════════════════════════════════════════════════
+   [1] checkout_flow = "streaming"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [2] cwa_country = "US"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: false | SameSite: Lax
+   [3] cwa_ip = "129.232.237.178"
+       Domain: cadillacwindowsticker.com | Path: / | Secure: true | HttpOnly: true | SameSite: Lax
+══════════════════════════════════════════════════════════════════════
+
+
+══════════════════════════════════════════════════════════════════════
+🚗 [SESSION STICKINESS] Proceeding to VIN Decode flow with sticky session...
+══════════════════════════════════════════════════════════════════════
+[VIN Decode] Generated VIN (US): 1FMCU9GD3JUC83741
+[VIN Decode] Clicking success element...
+Success condition met.
+📸 [SESSION STICKINESS] Preview screenshot captured and saved to: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/preview-sticky-session-1791995206895.png
+🚪 [SESSION STICKINESS] Page closed successfully.

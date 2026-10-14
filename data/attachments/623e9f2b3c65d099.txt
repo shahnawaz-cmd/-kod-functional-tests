@@ -1,0 +1,10 @@
+
+──────────────────────────────────────────────────────────────────────
+💉 [GEO INJECTOR] Selected Region: Saudi Arabia (Country: SA, IP: 146.70.167.70)
+🎯 [GEO INJECTOR] Target Currency Code: "SAR"
+──────────────────────────────────────────────────────────────────────
+🔄 [Pricing] Reloading /pricing to activate regional session context...
+📡 [API Response] Currency Code: "SAR" | Sign: "SAR" | Price: 93.75
+🖥️ [UI Render] Regional Currency "SAR" / "SAR" visible on page: ✅ YES
+✅ [SUCCESS] Pricing successfully localized to Saudi Arabia (SAR)!
+📸 [STDOUT SCREENSHOT] Regional pricing screenshot captured: /home/runner/work/-kod-functional-tests/-kod-functional-tests/test-results/screenshots/pricing-sa-sar-1791995184804.png
