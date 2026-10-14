@@ -28,5 +28,23 @@
     "brand": "mercedes",
     "name": "MercedesBenzWindowSticker",
     "url": "https://mercedesbenzwindowsticker.com"
+  },
+  {
+    "id": "honda",
+    "brand": "honda",
+    "name": "HondaWindowSticker",
+    "url": "https://hondawindowsticker.com"
+  },
+  {
+    "id": "gmc",
+    "brand": "gmc",
+    "name": "GmcWindowSticker",
+    "url": "https://gmcwindowsticker.com"
+  },
+  {
+    "id": "cadillac",
+    "brand": "cadillac",
+    "name": "CadillacWindowSticker",
+    "url": "https://cadillacwindowsticker.com"
   }
 ]

@@ -17,10 +17,6 @@ on:
         description: 'Optional Site ID to run (e.g. "toyota", "dodge", or "all")'
         required: false
         default: 'all'
-      max_parallel:
-        description: 'Max parallel sites to test simultaneously'
-        required: false
-        default: '2'
 
 jobs:
   # ─────────────────────────────────────────────────────────────
@@ -61,7 +57,6 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     strategy:
-      max-parallel: 2
       fail-fast: false
       matrix:
         site: ${{ fromJson(needs.setup.outputs.matrix) }}
@@ -101,7 +96,6 @@ jobs:
         run: |
           echo "::add-mask::${{ secrets.GEMINI_API_KEY }}"
           echo "::add-mask::${{ secrets.SLACK_WEBHOOK_URL }}"
-          echo "::add-mask::${{ secrets.SLACK_FAILURE_WEBHOOK_URL }}"
 
       - name: Run Playwright tests for ${{ matrix.site.name }}
         id: playwright-run
@@ -112,8 +106,8 @@ jobs:
           else
             PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
           fi
-          echo "🚀 Running tests for Project: $PROJECT_NAME on URL: ${{ matrix.site.url }}"
-          npx playwright test --project="$PROJECT_NAME"
+          echo "🚀 Detecting Flow and Running tests for Project: $PROJECT_NAME on URL: ${{ matrix.site.url }}"
+          node scripts/run-flow.js --project="$PROJECT_NAME"
         env:
           CI: true
           BASE_URL: "${{ matrix.site.url }}"
@@ -132,23 +126,6 @@ jobs:
         env:
           CI: true
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      - name: Send Immediate Slack Failure Alert
-        if: steps.playwright-run.outcome == 'failure'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          ALERT_MODE: "site-failure"
-          SITE_NAME: "${{ matrix.site.name }} (${{ matrix.browser }})"
-          SITE_URL: "${{ matrix.site.url }}"
-          GITHUB_SERVER: ${{ github.server_url }}
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_RUN: ${{ github.run_id }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REF: ${{ github.ref_name }}
-          GITHUB_SHA_VAL: ${{ github.sha }}
-          GITHUB_EVENT: ${{ github.event_name }}
-        run: |
-          node scripts/slack-notify.js --mode=failure
 
       - name: Upload Blob Report
         uses: actions/upload-artifact@v4

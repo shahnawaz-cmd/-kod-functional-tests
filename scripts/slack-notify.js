@@ -13,11 +13,12 @@ const githubRef = process.env.GITHUB_REF || 'main';
 const githubSha = (process.env.GITHUB_SHA_VAL || '').substring(0, 7) || 'HEAD';
 const githubEvent = process.env.GITHUB_EVENT || 'workflow_dispatch';
 
-// 1. Locate results file (check playwright-report/results.json, then fallback to results.json)
-let resultsPath = path.resolve(process.cwd(), 'playwright-report', 'results.json');
-if (!fs.existsSync(resultsPath)) {
-  resultsPath = path.resolve(process.cwd(), 'results.json');
-}
+// 1. Locate results file
+let resultsPath = process.env.TEST_RESULTS_FILE
+  ? path.resolve(process.cwd(), process.env.TEST_RESULTS_FILE)
+  : (fs.existsSync(path.resolve(process.cwd(), 'playwright-report', 'results.json'))
+      ? path.resolve(process.cwd(), 'playwright-report', 'results.json')
+      : path.resolve(process.cwd(), 'results.json'));
 
 let stats = { expected: 0, unexpected: 0, flaky: 0, skipped: 0 };
 let failedSpecs = [];
@@ -79,102 +80,130 @@ const currentSiteName = process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT 
 const currentSiteUrl = process.env.SITE_URL || process.env.BASE_URL || '';
 
 const isPassing = failedTests === 0 && totalTests > 0;
-const statusIcon = isPassing ? '✅' : '🚨';
-const statusColor = isPassing ? '#36a64f' : '#ff0000';
+const statusColor = isPassing ? '#2eb886' : '#e01e5a';
 
-let titleText;
-if (isFailureAlertMode) {
-  titleText = `🚨 PROD ALERT: [${currentSiteName || 'Site'}] Test Failure Detected!`;
-} else {
-  titleText = isPassing
-    ? `Window Sticker E2E Suite — All Passing (${passRate}%)`
-    : `Window Sticker E2E Suite — ${failedTests} Test(s) Failing (${passRate}% Pass Rate)`;
-}
+const titleText = isPassing
+  ? `✅ KOD Window Sticker Suite — All Passed (${passRate}%)`
+  : `🚨 KOD Window Sticker Suite — ${failedTests} Failed (${passRate}% Pass Rate)`;
 
-// Load active sites from sites.json
-let sitesListText = '';
-if (isFailureAlertMode) {
-  sitesListText = `• *Target URL:* <${currentSiteUrl}|${currentSiteUrl || currentSiteName}>`;
-} else {
-  try {
-    const sitesPath = path.resolve(process.cwd(), 'sites.json');
-    if (fs.existsSync(sitesPath)) {
-      const sites = JSON.parse(fs.readFileSync(sitesPath, 'utf8'));
-      sitesListText = sites.map(s => `• <${s.url}|${s.name}>`).join('\n');
-    }
-  } catch (e) {}
-}
-
-let failureSection = '';
-if (failedSpecs.length > 0) {
-  failureSection = `\n\n*🚨 Failed Tests:*\n${failedSpecs.slice(0, 5).join('\n')}`;
-  if (failedSpecs.length > 5) {
-    failureSection += `\n_...and ${failedSpecs.length - 5} more failure(s)_`;
+// Count active sites from sites.json
+let siteCount = 5;
+try {
+  const sitesPath = path.resolve(process.cwd(), 'sites.json');
+  if (fs.existsSync(sitesPath)) {
+    const sites = JSON.parse(fs.readFileSync(sitesPath, 'utf8'));
+    siteCount = sites.length;
   }
-}
-
-let flakySection = '';
-if (flakySpecs.length > 0) {
-  flakySection = `\n\n*⚠️ Flaky Tests (Passed on Retry):*\n${flakySpecs.slice(0, 5).join('\n')}`;
-}
+} catch (e) {}
 
 const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
 
-const summaryText = isFailureAlertMode
-  ? `*🚨 Immediate Site Failure Alert*\n• *Failed Tests:* ${failedTests}\n• *Passed Tests:* ${passedTests}${failureSection}`
-  : `*📊 Results Summary:*\n• *Pass Rate:* ${passRate}%\n• *Total Tests:* ${totalTests}\n• *✅ Passed:* ${passedTests}\n• *❌ Failed:* ${failedTests}\n• *⚠️ Flaky:* ${flakyTests}\n• *⏭️ Skipped:* ${skippedTests}${failureSection}${flakySection}`;
+// GitHub Pages URL (derived from owner/repo)
+const [owner, repoName] = githubRepo.split('/');
+const pagesUrl = owner && repoName ? `https://${owner}.github.io/${repoName}` : '';
+
+const blocks = [
+  {
+    type: 'header',
+    text: {
+      type: 'plain_text',
+      text: titleText,
+      emoji: true
+    }
+  },
+  {
+    type: 'section',
+    fields: [
+      {
+        type: 'mrkdwn',
+        text: `*Status:*\n${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing* (${passedTests} Passed)`}`
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Pass Rate:*\n📊 *${passRate}%* (${totalTests} Total)`
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Target Scope:*\n🚗 *${siteCount} Domains* (Desktop & Mobile)`
+      },
+      {
+        type: 'mrkdwn',
+        text: `*Execution:*\n⚙️ Branch: \`${githubRef}\` (${githubEvent})`
+      }
+    ]
+  }
+];
+
+// Add Top Failures section if any failed
+if (failedSpecs.length > 0) {
+  const failureList = failedSpecs.slice(0, 4).join('\n');
+  const overflow = failedSpecs.length > 4 ? `\n_...and ${failedSpecs.length - 4} more failure(s)_` : '';
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*🚨 Top Failures:*\n${failureList}${overflow}`
+    }
+  });
+}
+
+// Add Action Buttons
+const actionElements = [];
+
+if (pagesUrl) {
+  actionElements.push({
+    type: 'button',
+    text: {
+      type: 'plain_text',
+      text: '📊 Allure Report',
+      emoji: true
+    },
+    url: pagesUrl,
+    style: 'primary'
+  });
+
+  actionElements.push({
+    type: 'button',
+    text: {
+      type: 'plain_text',
+      text: '🎭 Playwright HTML',
+      emoji: true
+    },
+    url: `${pagesUrl}/playwright/`
+  });
+}
+
+actionElements.push({
+  type: 'button',
+  text: {
+    type: 'plain_text',
+    text: '⚙️ GitHub Action',
+    emoji: true
+  },
+  url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
+});
+
+blocks.push({
+  type: 'actions',
+  elements: actionElements
+});
+
+// Clean Footer Context
+blocks.push({
+  type: 'context',
+  elements: [
+    {
+      type: 'mrkdwn',
+      text: `Commit \`${githubSha}\` by *${githubActor}*  •  ${runTime}`
+    }
+  ]
+});
 
 const payload = {
   attachments: [
     {
-      color: isFailureAlertMode ? '#ff0000' : statusColor,
-      blocks: [
-        {
-          type: 'header',
-          text: {
-            type: 'plain_text',
-            text: titleText,
-            emoji: true
-          }
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: summaryText
-          }
-        },
-        {
-          type: 'section',
-          text: {
-            type: 'mrkdwn',
-            text: `*🌐 Site Information:*\n${sitesListText || 'All Sites'}`
-          }
-        },
-        {
-          type: 'context',
-          elements: [
-            {
-              type: 'mrkdwn',
-              text: `*Branch:* \`${githubRef}\`  |  *Commit:* \`${githubSha}\`  |  *Trigger:* \`${githubEvent}\`  |  *Time:* ${runTime}`
-            }
-          ]
-        },
-        {
-          type: 'actions',
-          elements: [
-            {
-              type: 'button',
-              text: {
-                type: 'plain_text',
-                text: 'View Workflow Run',
-                emoji: true
-              },
-              url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
-            }
-          ]
-        }
-      ]
+      color: statusColor,
+      blocks: blocks
     }
   ]
 };

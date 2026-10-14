@@ -2,17 +2,23 @@
 const { chromium } = require('@playwright/test');
 require('dotenv').config();
 
-const ALL_DOMAINS = [
+let ALL_DOMAINS = [
   { name: 'ToyotaWindowSticker', url: 'https://toyotawindowsticker.com/' },
   { name: 'DodgeWindowSticker', url: 'https://dodgewindowsticker.com/' },
   { name: 'AudiWindowSticker', url: 'https://audiwindowsticker.com/' }
 ];
+try {
+  const sites = require('../sites.json');
+  if (Array.isArray(sites) && sites.length > 0) {
+    ALL_DOMAINS = sites.map(s => ({ name: s.name, url: s.url }));
+  }
+} catch (e) {}
 
 async function detectSingleDomain(name, url) {
   console.log(`\n🔍 [Flow Detection] Checking ${name} (${url})...`);
   const browser = await chromium.launch({
     headless: true,
-    args: ['--dns-result-order=ipv4first']
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
@@ -20,14 +26,25 @@ async function detectSingleDomain(name, url) {
   let errorMsg = null;
 
   try {
-    for (let navAttempt = 1; navAttempt <= 3; navAttempt++) {
+    // Clear all browser cache, cookies, and local storage to guarantee fresh state
+    await context.clearCookies();
+    const cdp = await context.newCDPSession(page).catch(() => null);
+    if (cdp) {
+      await cdp.send('Network.clearBrowserCache').catch(() => {});
+      await cdp.send('Network.clearBrowserCookies').catch(() => {});
+      await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
+    }
+    // Append cache-buster query parameter to bypass Cloudflare edge cache (CF-Cache-Status: HIT)
+    const freshUrl = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}${url.endsWith('/') ? '' : '/'}?_t=${Date.now()}`;
+
+    for (let navAttempt = 1; navAttempt <= 4; navAttempt++) {
       try {
-        await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+        await page.goto(freshUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
         break;
       } catch (navError) {
         console.warn(`  ⚠️ Navigation attempt ${navAttempt} failed (${navError.message}). Retrying...`);
-        if (navAttempt === 3) throw navError;
-        await page.waitForTimeout(2000);
+        if (navAttempt === 4) throw navError;
+        await page.waitForTimeout(3000 * navAttempt);
       }
     }
 

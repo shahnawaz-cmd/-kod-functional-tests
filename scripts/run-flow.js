@@ -62,6 +62,26 @@ function runFlow() {
   }
 
   const isWin = process.platform === 'win32';
+  const flowSpec = flowType === 'streaming'
+    ? (isWin ? '"streaming Task/global_streaming_specs.spec.js"' : "'streaming Task/global_streaming_specs.spec.js'")
+    : 'tests/global_case_verification.spec.ts';
+
+  const standaloneSpecs = [
+    'tests/pricing_page.spec.ts',
+    'tests/session_ip_stickiness.spec.ts',
+    'tests/ui_ux_verification.spec.ts'
+  ];
+
+  // Check if explicit spec files were already passed in arguments
+  const hasCustomSpecArg = rawArgs.some(arg => arg.endsWith('.spec.js') || arg.endsWith('.spec.ts'));
+
+  let targetSpecs;
+  if (hasCustomSpecArg) {
+    targetSpecs = '';
+  } else {
+    targetSpecs = `${flowSpec} ${standaloneSpecs.join(' ')}`;
+  }
+
   const formattedArgs = rawArgs.map(arg => {
     if (arg.includes(' ') || arg.includes('(') || arg.includes(')') || arg.includes('|')) {
       return isWin ? `"${arg.replace(/"/g, '\\"')}"` : `'${arg.replace(/'/g, "'\\''")}'`;
@@ -69,12 +89,15 @@ function runFlow() {
     return arg;
   }).join(' ');
 
-  const targetSpec = flowType === 'streaming'
-    ? (isWin ? '"streaming Task/global_streaming_specs.spec.js"' : "'streaming Task/global_streaming_specs.spec.js'")
-    : 'tests/global_case_verification.spec.ts';
+  console.log(`🎯 [Flow Detected: ${flowType.toUpperCase()}]`);
+  console.log(`   ↳ Active Flow File: ${flowSpec}`);
+  console.log(`   ↳ Skipped Flow File: ${flowType === 'streaming' ? 'tests/global_case_verification.spec.ts' : 'streaming Task/global_streaming_specs.spec.js'}`);
+  console.log(`   ↳ Standalone Suites: ${standaloneSpecs.join(', ')}`);
 
-  console.log(`🎯 [${flowType === 'streaming' ? 'Streaming' : 'Non-Streaming'} Flow Detected] Launching Test Suite: ${targetSpec}`);
-  const cmd = `npx playwright test ${targetSpec} ${formattedArgs}`.trim();
+  const cmd = targetSpecs
+    ? `npx playwright test ${targetSpecs} ${formattedArgs}`.trim()
+    : `npx playwright test ${formattedArgs}`.trim();
+
   console.log(`Executing command: ${cmd}`);
 
   try {
