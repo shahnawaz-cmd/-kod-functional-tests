@@ -301,14 +301,16 @@ jobs:
         if: always()
         run: |
           mkdir -p gh-deploy/playwright
-          # Copy HTML report assets and exclude large JSON / trace blobs from gh-pages
-          rsync -av --exclude='results.json' --exclude='*.zip' playwright-report/ gh-deploy/playwright/ 2>/dev/null || (
-            cp -r playwright-report/* gh-deploy/playwright/
-            rm -f gh-deploy/playwright/results.json
-          )
+          cp -r playwright-report/* gh-deploy/playwright/ 2>/dev/null || true
+          rm -f gh-deploy/playwright/results.json
           if [ -d "allure-report-out" ]; then
             cp -r allure-report-out/* gh-deploy/
           fi
+          # Keep GitHub Pages lightweight: drop videos, traces and any file > 5MB
+          # (full media is still available in the 'playwright-report' / 'allure-report' workflow artifacts)
+          find gh-deploy -type f \( -name '*.zip' -o -name '*.webm' -o -name '*.mp4' \) -delete
+          find gh-deploy -type f -size +5M -delete
+          echo "📦 GitHub Pages payload size:"; du -sh gh-deploy
 
       - name: Manage GitHub Issues on Failure / Resolution
         if: always()
@@ -341,3 +343,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./gh-deploy
           keep_files: false
+          force_orphan: true
