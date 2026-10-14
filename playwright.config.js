@@ -1,6 +1,17 @@
+const dns = require('dns');
+
+// Prioritize IPv4 over IPv6 across all Node.js DNS lookups to prevent AAAA query hangs
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
+// Increase Node.js DNS threadpool from default 4 to 64 to prevent EAI_AGAIN under concurrency
+process.env.UV_THREADPOOL_SIZE = '64';
+
 const { defineConfig, devices } = require('@playwright/test');
 
 module.exports = defineConfig({
+  globalSetup: './global-setup.js',
   testDir: '.',
   timeout: process.env.CI ? 150000 : 120000,
   expect: {
@@ -46,7 +57,13 @@ module.exports = defineConfig({
               headless: !!process.env.CI,
               ignoreHTTPSErrors: true,
               launchOptions: {
-                args: ['--incognito', '--dns-result-order=ipv4first'],
+                args: [
+                  '--incognito',
+                  '--dns-result-order=ipv4first',
+                  '--disable-features=AsyncDns',
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                ],
               },
             },
           });
@@ -58,7 +75,13 @@ module.exports = defineConfig({
               headless: !!process.env.CI,
               ignoreHTTPSErrors: true,
               launchOptions: {
-                args: ['--incognito', '--dns-result-order=ipv4first'],
+                args: [
+                  '--incognito',
+                  '--dns-result-order=ipv4first',
+                  '--disable-features=AsyncDns',
+                  '--no-sandbox',
+                  '--disable-setuid-sandbox',
+                ],
               },
             },
           });
@@ -77,7 +100,13 @@ module.exports = defineConfig({
         headless: !!process.env.CI,
         ignoreHTTPSErrors: true,
         launchOptions: {
-          args: ['--incognito', '--dns-result-order=ipv4first'],
+          args: [
+            '--incognito',
+            '--dns-result-order=ipv4first',
+            '--disable-features=AsyncDns',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+          ],
         },
       },
     },
@@ -89,7 +118,13 @@ module.exports = defineConfig({
         headless: !!process.env.CI,
         ignoreHTTPSErrors: true,
         launchOptions: {
-          args: ['--incognito', '--dns-result-order=ipv4first'],
+          args: [
+            '--incognito',
+            '--dns-result-order=ipv4first',
+            '--disable-features=AsyncDns',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+          ],
         },
       },
     },
@@ -101,7 +136,13 @@ module.exports = defineConfig({
         headless: !!process.env.CI,
         ignoreHTTPSErrors: true,
         launchOptions: {
-          args: ['--incognito', '--dns-result-order=ipv4first'],
+          args: [
+            '--incognito',
+            '--dns-result-order=ipv4first',
+            '--disable-features=AsyncDns',
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+          ],
         },
       },
     },

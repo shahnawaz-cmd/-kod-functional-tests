@@ -124,21 +124,36 @@ class CouponFlowVerifier {
       .or(this.page.locator('button:has-text("Apply")')).first();
     await applyBtn.waitFor({ state: 'visible', timeout: 10000 });
     await applyBtn.scrollIntoViewIfNeeded().catch(() => {});
-    try {
-      await applyBtn.click({ force: true, timeout: 5000 });
-    } catch (e) {
-      console.log('ℹ️ Retrying apply button click via evaluate...');
-      await applyBtn.evaluate((el) => el.click()).catch(() => {});
-    }
-
-    // Wait for asynchronous checkout pricing recalculation to complete
-    await this.page.locator('button:has-text("Updating")').waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
 
     const percent = Math.round(couponPercentage * 100);
     const appliedNotice = this.page.getByText(new RegExp(`${couponCode}\\s+applied|Coupon\\s+${couponCode}|${percent}%\\s+off`, 'i'))
-      .or(this.page.locator('aside').filter({ hasText: /Discount/i }))
+      .or(this.page.locator('aside, complementary, [role="complementary"]').filter({ hasText: /Discount/i }))
       .or(this.page.locator('button:has-text("Remove"), [aria-label*="remove" i]'))
       .first();
+
+    // Trigger Apply: Try native click, then Enter key, and wait for notice or recalculation
+    for (let clickAttempt = 1; clickAttempt <= 3; clickAttempt++) {
+      if (await appliedNotice.isVisible().catch(() => false)) break;
+
+      console.log(`ℹ️ [CouponFlow] Triggering apply coupon attempt ${clickAttempt}...`);
+      if (clickAttempt === 1) {
+        await applyBtn.click({ timeout: 5000 }).catch(async () => {
+          await applyBtn.click({ force: true }).catch(() => {});
+        });
+      } else if (clickAttempt === 2) {
+        // Press Enter inside input field (triggers standard form onSubmit in Next.js)
+        await promoCodeInput.press('Enter').catch(() => {});
+      } else {
+        await applyBtn.evaluate(b => b.click()).catch(() => {});
+      }
+
+      // Wait for any async "Updating…" / spinner state to settle
+      await this.page.locator('button:has-text("Updating")').waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+      await this.page.waitForTimeout(1000);
+
+      if (await appliedNotice.isVisible().catch(() => false)) break;
+    }
+
     await expect(appliedNotice).toBeVisible({ timeout: 20000 });
     return true;
   }
@@ -236,30 +251,68 @@ class CouponBannerHandler {
     this.page = page;
   }
 
-  async verifyCouponBannerAndCookie(couponCode, expectedDiscount = null) {
-    await this.page.goto(`/?offer=${couponCode}`);
-    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  /**
+   * Smart wait helper: waits for client-side cookie to match expected value using predicate polling
+   */
+  async waitForCouponCookie(expectedValue, timeout = 12000) {
+    let matchedCookie = null;
+    await expect.poll(async () => {
+      const cookies = await this.page.context().cookies();
+      matchedCookie = cookies.find(c => c.name === 'coupon');
+      return matchedCookie?.value;
+    }, {
+      message: `[SmartWait] Timed out waiting for cookie "coupon" to match "${expectedValue}"`,
+      timeout,
+      intervals: [150, 300, 600, 1000]
+    }).toBe(expectedValue);
+    return matchedCookie;
+  }
 
-    // 1. Match banner dynamically (handles discount%, coupon applied, promotional banners)
-    const bannerLocator = this.page.locator('text=/You have received \\d+% Discount!/i')
+  /**
+   * Smart wait helper: waits for DOM banner to become visible without hardcoded sleep
+   */
+  async waitForBannerElement(timeout = 12000) {
+    const banner = this.page.locator('text=/You have received \\d+% Discount!/i')
       .or(this.page.locator('text=/\\d+% (discount|off)/i'))
       .or(this.page.locator('[class*="coupon" i], [class*="discount" i], [id*="banner" i]'))
       .first();
 
-    const bannerFound = await bannerLocator.isVisible({ timeout: 10000 }).catch(() => false);
-    let detectedDiscount = expectedDiscount || '15%';
-    let bannerText = '';
+    const isVisible = await banner.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false);
+    const text = isVisible ? await banner.innerText().catch(() => '') : '';
+    return { banner, isVisible, text };
+  }
 
-    if (bannerFound) {
-      bannerText = await bannerLocator.innerText().catch(() => '');
-      detectedDiscount = bannerText.match(/(\d+%)/)?.[1] || expectedDiscount || '15%';
-    } else {
-      console.warn(`⚠️ [CouponBanner] Banner text not detected on page for ${couponCode}, verifying cookie.`);
+  async verifyCouponBannerAndCookie(couponCode, expectedDiscount = null) {
+    // Clear DNS/browser cache via CDP session before opening domain to ensure fresh socket connection
+    const cdp = await this.page.context().newCDPSession(this.page).catch(() => null);
+    if (cdp) {
+      await cdp.send('Network.clearBrowserCache').catch(() => {});
+      await cdp.send('Network.clearBrowserCookies').catch(() => {});
     }
 
-    // 2. Verify Cookie is set
-    const cookies = await this.page.context().cookies();
-    const couponCookie = cookies.find(c => c.name === 'coupon');
+    // 1. Navigate with domcontentloaded & retry logic to handle cold DNS lookups
+    const offerUrl = `/?offer=${couponCode}`;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.page.goto(offerUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        break;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        console.warn(`⚠️ [DNS/Navigation Retry] Attempt ${attempt} failed (${err.message}). Retrying in 1.5s...`);
+        await this.page.waitForTimeout(1500);
+      }
+    }
+
+    // 2. Smart wait: Wait for client-side Next.js hydration or network activity to settle
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+
+    // 3. Smart wait for Banner visibility
+    const { isVisible: bannerFound, text: bannerText } = await this.waitForBannerElement(12000);
+    const detectedDiscount = bannerText.match(/(\d+%)/)?.[1] || expectedDiscount || '15%';
+
+    // 4. Smart wait for Cookie write by Next.js hydration
+    const couponCookie = await this.waitForCouponCookie(couponCode, 10000).catch(() => null);
+
     if (!couponCookie && !bannerFound) {
       console.warn(`⚠️ [CouponBanner] Site may not support ?offer=${couponCode} parameter.`);
     }
@@ -268,54 +321,39 @@ class CouponBannerHandler {
   }
 
   async verifyHierarchyAndPersistence(testInfo = null, lowCoupon = 'preview15', highCoupon = 'get20') {
-    // 1. Apply initial coupon (dynamic discount percentage)
+    // 1. Apply initial coupon with smart waiting
     const lowResult = await this.verifyCouponBannerAndCookie(lowCoupon);
     if (testInfo) {
       const ss1 = await this.page.screenshot({ fullPage: false });
       await testInfo.attach(`TC_24_${lowCoupon}_Banner_Screenshot`, { body: ss1, contentType: 'image/png' });
     }
 
-    // 2. Apply higher coupon (dynamic discount percentage)
-    await this.page.goto(`/?offer=${highCoupon}`);
+    // 2. Smart wait: Apply higher coupon and wait for Next.js client-side state change
+    await this.page.goto(`/?offer=${highCoupon}`, { waitUntil: 'domcontentloaded' });
     await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
-    const highBanner = this.page.locator('text=/You have received \\d+% Discount!/i')
-      .or(this.page.locator('text=/\\d+% (discount|off)/i'))
-      .or(this.page.locator('[class*="coupon" i], [class*="discount" i], [id*="banner" i]'))
-      .first();
-    
-    // Check if visible within 15 seconds, or verify coupon cookie
-    const isHighVisible = await highBanner.isVisible({ timeout: 15000 }).catch(() => false);
-    const highBannerText = isHighVisible ? await highBanner.innerText().catch(() => '') : '';
+    // Smart wait for banner element
+    const { isVisible: isHighVisible, text: highBannerText } = await this.waitForBannerElement(12000);
 
-    const cookies = await this.page.context().cookies();
-    const couponCookie = cookies.find(c => c.name === 'coupon');
-    const prevCouponCookie = cookies.find(c => c.name === 'prev_coupon');
-
-    // Hierarchy validation: coupon cookie must match high coupon
-    expect(couponCookie?.value).toBe(highCoupon);
+    // Smart wait: Hierarchy validation via cookie polling
+    const couponCookie = await this.waitForCouponCookie(highCoupon, 10000);
+    const allCookies = await this.page.context().cookies();
+    const prevCouponCookie = allCookies.find(c => c.name === 'prev_coupon');
 
     if (testInfo) {
       const ss2 = await this.page.screenshot({ fullPage: false });
       await testInfo.attach(`TC_24_${highCoupon}_Banner_Screenshot`, { body: ss2, contentType: 'image/png' });
     }
 
-    // 3. Persistence across sub-pages (/vin-decoder)
+    // 3. Persistence across sub-pages (/vin-decoder) with smart DOM + Cookie wait
     const stickerPath = '/vin-decoder';
-    await this.page.goto(stickerPath);
+    await this.page.goto(stickerPath, { waitUntil: 'domcontentloaded' });
     await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-    
-    const persistedBanner = this.page.locator('text=/You have received \\d+% Discount!/i')
-      .or(this.page.locator('text=/\\d+% (discount|off)/i'))
-      .or(this.page.locator('[class*="coupon" i], [class*="discount" i], [id*="banner" i]'))
-      .first();
 
-    const isPersistedVisible = await persistedBanner.isVisible({ timeout: 15000 }).catch(() => false);
+    // Smart wait for persisted banner or cookie persistence
+    const { isVisible: isPersistedVisible } = await this.waitForBannerElement(10000);
     if (!isPersistedVisible) {
-      // Re-verify cookie persists even if banner visual is responsive/hidden on mobile
-      const subCookies = await this.page.context().cookies();
-      const persistedCookie = subCookies.find(c => c.name === 'coupon');
-      expect(persistedCookie?.value).toBe(highCoupon);
+      await this.waitForCouponCookie(highCoupon, 10000);
     }
 
     if (testInfo) {

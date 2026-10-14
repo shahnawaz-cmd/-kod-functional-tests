@@ -31,9 +31,24 @@ test.describe('Pricing Page Suite', () => {
 
     testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
-    // Navigate to current project's pricing route
+    // Clear DNS socket/browser cache via CDP session before opening domain
+    const cdp = await page.context().newCDPSession(page).catch(() => null);
+    if (cdp) {
+      await cdp.send('Network.clearBrowserCache').catch(() => {});
+    }
+
+    // Navigate to current project's pricing route with resilient retry
     const pricingRoute = getPricingRoute(testInfo);
-    await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await page.goto(pricingRoute, { waitUntil: 'domcontentloaded', timeout: 25000 });
+        break;
+      } catch (err: any) {
+        if (attempt === 3) throw err;
+        console.warn(`⚠️ [Pricing Page DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
+        await page.waitForTimeout(1500);
+      }
+    }
     const task = new PricingApiParityTask();
     await task.performAs(page);
 

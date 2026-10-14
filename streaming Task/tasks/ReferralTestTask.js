@@ -30,7 +30,24 @@ async function applyReferralAndVerifyCookies(page, queryParams = REFERRAL_QUERY)
   }
 
   console.log(`🚀 [ReferralTest] Navigating to URL with referral parameters: ${targetUrl}`);
-  await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+  
+  // Clear DNS socket/browser cache via CDP session before opening domain to ensure fresh socket connection
+  const cdp = await page.context().newCDPSession(page).catch(() => null);
+  if (cdp) {
+    await cdp.send('Network.clearBrowserCache').catch(() => {});
+  }
+
+  // Resilient navigation retry to handle cold DNS lookups
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      break;
+    } catch (err) {
+      if (attempt === 3) throw err;
+      console.warn(`⚠️ [ReferralTest DNS Retry] Attempt ${attempt} failed (${err.message}). Retrying in 1.5s...`);
+      await page.waitForTimeout(1500);
+    }
+  }
   await page.waitForTimeout(1500);
 
   // Poll for cookie persistence

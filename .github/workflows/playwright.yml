@@ -25,6 +25,10 @@ on:
         required: false
         default: 'all'
 
+env:
+  UV_THREADPOOL_SIZE: 64
+  NODE_OPTIONS: "--dns-result-order=ipv4first"
+
 jobs:
   # ─────────────────────────────────────────────────────────────
   # STEP 1: SETUP DYNAMIC MATRIX FROM sites.json
