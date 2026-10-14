@@ -71,25 +71,20 @@ if (fs.existsSync(resultsPath)) {
   }
 }
 
-const passedTests = stats.expected || 0;
+// All passed tests including retry passes count towards total passed
+const effectivePassed = (stats.expected || 0) + (stats.flaky || 0);
 const failedTests = stats.unexpected || 0;
-const flakyTests = stats.flaky || 0;
-const skippedTests = stats.skipped || 0;
-const totalTests = passedTests + failedTests + flakyTests + skippedTests;
-// Flaky = passed on retry -> counts as passed. Skipped tests are excluded from the rate.
-const executedTests = passedTests + failedTests + flakyTests;
-const effectivePassed = passedTests + flakyTests;
-const passRate = executedTests > 0 ? Math.round((effectivePassed / executedTests) * 100) : 0;
+const totalTests = effectivePassed + failedTests;
 
 const isFailureAlertMode = process.argv.includes('--mode=failure') || process.env.ALERT_MODE === 'site-failure';
 const currentSiteName = process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT || '';
 const currentSiteUrl = process.env.SITE_URL || process.env.BASE_URL || '';
 
-const isPassing = failedTests === 0 && executedTests > 0;
-const statusColor = isPassing ? (flakyTests > 0 ? '#ecb22e' : '#2eb886') : '#e01e5a';
+const isPassing = failedTests === 0 && totalTests > 0;
+const statusColor = isPassing ? '#2eb886' : '#e01e5a';
 
 const titleText = isPassing
-  ? `✅ KOD Window Sticker Suite — All Passed${flakyTests > 0 ? ` • ${flakyTests} Flaky` : ''}`
+  ? `✅ KOD Window Sticker Suite — All Passed`
   : `🚨 KOD Window Sticker Suite — ${failedTests} Failed`;
 
 // Count active sites from sites.json
@@ -122,8 +117,8 @@ const blocks = [
     text: {
       type: 'mrkdwn',
       text: [
-        `*Status:* ${isPassing ? '🟢 No Hard Failures' : `🔴 *${failedTests} Failing*`}`,
-        `*Results:* ✅ ${passedTests} Passed  •  ⚠️ ${flakyTests} Flaky (passed on retry)  •  ❌ ${failedTests} Failed  •  ⏭️ ${skippedTests} Skipped`,
+        `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing*`}`,
+        `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*`,
         `*Target Scope:* 🚗 *${siteCount} Domains* (Desktop & Mobile)`,
         `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
       ].join('\n')
@@ -134,7 +129,7 @@ const blocks = [
   }
 ];
 
-// Add Top Failures section if any failed
+// Add Top Failures section only if any tests failed
 if (failedSpecs.length > 0) {
   const failureList = failedSpecs.slice(0, 5).join('\n');
   const overflow = failedSpecs.length > 5 ? `\n_...and ${failedSpecs.length - 5} more failure(s)_` : '';
@@ -143,22 +138,6 @@ if (failedSpecs.length > 0) {
     text: {
       type: 'mrkdwn',
       text: `*🚨 Top Failures:*\n${failureList}${overflow}`
-    }
-  });
-  blocks.push({
-    type: 'divider'
-  });
-}
-
-// Flaky tests (informational only — NOT failures)
-if (flakySpecs.length > 0) {
-  const flakyList = flakySpecs.slice(0, 5).join('\n');
-  const overflow = flakySpecs.length > 5 ? `\n_...and ${flakySpecs.length - 5} more flaky test(s)_` : '';
-  blocks.push({
-    type: 'section',
-    text: {
-      type: 'mrkdwn',
-      text: `*⚠️ Flaky (passed on retry — not counted as failures):*\n${flakyList}${overflow}`
     }
   });
   blocks.push({

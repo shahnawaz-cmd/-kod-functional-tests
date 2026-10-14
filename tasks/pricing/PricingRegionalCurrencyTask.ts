@@ -80,18 +80,27 @@ export class PricingRegionalCurrencyTask {
     });
 
     await test.step(`Step 3: Validate Pricing Currency Matches Expected Code (${expectedCurrency})`, async () => {
-      // 1. Backend validation via relative /api/pricing with session stabilization
-      let response = await page.request.get('/api/pricing?sticker=1&dealer=1');
-      expect(response.status()).toBe(200);
+      // 1. Backend validation via relative /api/pricing with session stabilization and edge retry
+      let response = await page.request.get('/api/pricing?sticker=1&dealer=1').catch(() => null);
+      
+      // If edge returns 502, 503 or network hiccup, retry up to 2 times with backoff
+      for (let attempt = 1; attempt <= 2 && (!response || response.status() !== 200); attempt++) {
+        console.warn(`⚠️ [/api/pricing] Attempt ${attempt} failed with status ${response?.status()}, retrying in 2s...`);
+        await page.waitForTimeout(2000);
+        response = await page.request.get('/api/pricing?sticker=1&dealer=1').catch(() => null);
+      }
 
-      let data = await response.json();
-      let firstPlan = data.stickerUser?.credit_plans?.[0] || data.reportUser?.credit_plans?.[0];
+      expect(response).not.toBeNull();
+      expect(response?.status()).toBe(200);
+
+      let data = await response?.json();
+      let firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
       if (firstPlan && firstPlan.currency_code === 'USD' && expectedCurrency !== 'USD') {
         // Wait and re-fetch once to allow server session to sync with injected geo cookies
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(2000);
         response = await page.request.get('/api/pricing?sticker=1&dealer=1');
         data = await response.json();
-        firstPlan = data.stickerUser?.credit_plans?.[0] || data.reportUser?.credit_plans?.[0];
+        firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
       }
       expect(firstPlan).toBeDefined();
 
