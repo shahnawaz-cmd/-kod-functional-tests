@@ -1,0 +1,16 @@
+node_modules/
+playwright-report/
+test-results/
+blob-report/
+all-blobs/
+all-blob-reports/
+all-allure-results/
+allure-results/
+allure-report/
+allure-report-out/
+gh-pages-dir/
+gh-deploy/
+.env
+.ai-healed.json
+results.json
+temp-blobs/

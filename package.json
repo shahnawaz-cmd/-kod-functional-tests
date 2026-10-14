@@ -1,0 +1,37 @@
+{
+  "name": "kod-functional-test",
+  "version": "1.0.0",
+  "description": "KOD Functional E2E with Playwright Self-Healing & AI Agentic Healing",
+  "main": "index.js",
+  "scripts": {
+    "test": "node scripts/run-flow.js",
+    "test:flow": "node scripts/run-flow.js",
+    "test:streaming": "npx playwright test \"streaming Task/global_streaming_specs.spec.js\"",
+    "test:non-streaming": "npx playwright test tests/global_case_verification.spec.ts",
+    "test:pricing": "npx playwright test tests/pricing_page.spec.ts",
+    "test:ip": "npx playwright test tests/session_ip_stickiness.spec.ts",
+    "test:ui-ux": "npx playwright test tests/ui_ux_verification.spec.ts",
+    "test:standalone": "npx playwright test tests/session_ip_stickiness.spec.ts tests/pricing_page.spec.ts tests/ui_ux_verification.spec.ts",
+    "detect-flow": "node scripts/detect-flow.js",
+    "run-flow": "node scripts/run-flow.js",
+    "heal:prod": "node scripts/agentic-healer-ci.js",
+    "heal:ci": "node scripts/agentic-healer-ci.js",
+    "manage-issues": "node scripts/manage-issues.js",
+    "allure:generate": "allure generate ./allure-results --clean -o ./allure-report",
+    "allure:open": "allure open ./allure-report",
+    "allure:serve": "allure serve ./allure-results"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "allure-commandline": "^2.43.0",
+    "allure-playwright": "^3.11.0",
+    "dotenv": "^17.4.2"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "@octokit/rest": "^20.1.0",
+    "axios": "^1.18.1"
+  }
+}

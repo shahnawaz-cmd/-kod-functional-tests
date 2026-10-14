@@ -1,0 +1,32 @@
+[
+  {
+    "id": "audi",
+    "brand": "audi",
+    "name": "AudiWindowSticker",
+    "url": "https://audiwindowsticker.com"
+  },
+  {
+    "id": "toyota",
+    "brand": "toyota",
+    "name": "ToyotaWindowSticker",
+    "url": "https://toyotawindowsticker.com"
+  },
+  {
+    "id": "gm",
+    "brand": "gm",
+    "name": "GmWindowStickers",
+    "url": "https://gmwindowstickers.com"
+  },
+  {
+    "id": "dodge",
+    "brand": "dodge",
+    "name": "DodgeWindowSticker",
+    "url": "https://dodgewindowsticker.com"
+  },
+  {
+    "id": "mercedes",
+    "brand": "mercedes",
+    "name": "MercedesBenzWindowSticker",
+    "url": "https://mercedesbenzwindowsticker.com"
+  }
+]

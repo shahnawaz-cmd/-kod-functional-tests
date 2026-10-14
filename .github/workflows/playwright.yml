@@ -1,0 +1,271 @@
+name: Window Sticker - Orchestrator E2E Suite
+
+permissions:
+  contents: write
+  issues: write
+  pages: write
+  actions: write
+  id-token: write
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      site_filter:
+        description: 'Optional Site ID to run (e.g. "toyota", "dodge", or "all")'
+        required: false
+        default: 'all'
+      max_parallel:
+        description: 'Max parallel sites to test simultaneously'
+        required: false
+        default: '2'
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # STEP 1: SETUP DYNAMIC MATRIX FROM sites.json
+  # ─────────────────────────────────────────────────────────────
+  setup:
+    name: ⚙️ Setup Orchestrator Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Generate Dynamic Matrix Output
+        id: set-matrix
+        run: |
+          FILTER="${{ github.event.inputs.site_filter || 'all' }}"
+          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
+            echo "Filtering for site: $FILTER"
+            MATRIX_JSON=$(node -e "
+              const sites = require('./sites.json');
+              const filtered = sites.filter(s => s.id === '$FILTER' || s.brand === '$FILTER' || s.name.toLowerCase().includes('$FILTER'.toLowerCase()));
+              console.log(JSON.stringify(filtered.length ? filtered : sites));
+            ")
+          else
+            MATRIX_JSON=$(cat sites.json | tr -d '\n' | tr -d ' ')
+          fi
+          echo "matrix=${MATRIX_JSON}" >> $GITHUB_OUTPUT
+
+  # ─────────────────────────────────────────────────────────────
+  # STEP 2: RUN INDEPENDENT TEST PER SITE (SEPARATE RUNNER)
+  # ─────────────────────────────────────────────────────────────
+  test-site:
+    name: 🌐 ${{ matrix.site.name }}
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    continue-on-error: true
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        site: ${{ fromJson(needs.setup.outputs.matrix) }}
+        browser:
+          - Desktop
+          - MobileChrome
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get Playwright Version
+        id: playwright-version
+        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Mask Sensitive Secrets in CI Logs
+        run: |
+          echo "::add-mask::${{ secrets.GEMINI_API_KEY }}"
+          echo "::add-mask::${{ secrets.SLACK_WEBHOOK_URL }}"
+          echo "::add-mask::${{ secrets.SLACK_FAILURE_WEBHOOK_URL }}"
+
+      - name: Run Playwright tests for ${{ matrix.site.name }}
+        id: playwright-run
+        continue-on-error: true
+        run: |
+          if [ "${{ matrix.browser }}" = "Desktop" ]; then
+            PROJECT_NAME="${{ matrix.site.name }}"
+          else
+            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
+          fi
+          echo "🚀 Running tests for Project: $PROJECT_NAME on URL: ${{ matrix.site.url }}"
+          npx playwright test --project="$PROJECT_NAME"
+        env:
+          CI: true
+          BASE_URL: "${{ matrix.site.url }}"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Run AI Agentic Self-Healer (On Test Failure)
+        if: steps.playwright-run.outcome == 'failure'
+        timeout-minutes: 5
+        run: |
+          if [ "${{ matrix.browser }}" = "Desktop" ]; then
+            PROJECT_NAME="${{ matrix.site.name }}"
+          else
+            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
+          fi
+          PLAYWRIGHT_PROJECT=$PROJECT_NAME npm run heal:prod
+        env:
+          CI: true
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Send Immediate Slack Failure Alert
+        if: steps.playwright-run.outcome == 'failure'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          ALERT_MODE: "site-failure"
+          SITE_NAME: "${{ matrix.site.name }} (${{ matrix.browser }})"
+          SITE_URL: "${{ matrix.site.url }}"
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+        run: |
+          node scripts/slack-notify.js --mode=failure
+
+      - name: Upload Blob Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: all-blob-reports-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: blob-report/
+          retention-days: 2
+
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: allure-results/
+          retention-days: 2
+
+  # ─────────────────────────────────────────────────────────────
+  # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
+  # ─────────────────────────────────────────────────────────────
+  merge-reports:
+    name: 📊 Consolidate Reports & Notify
+    if: always()
+    needs: [test-site]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Java Runtime for Allure
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Download all Blob Reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blobs
+          pattern: all-blob-reports-*
+          merge-multiple: true
+
+      - name: Merge Playwright Reports
+        run: |
+          npx playwright merge-reports --config=merge.config.js ./all-blobs
+        env:
+          CI: true
+
+      - name: Download all Allure Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: all-allure-results
+          merge-multiple: true
+
+      - name: Generate Allure Report
+        run: |
+          npm run allure:generate -- -o allure-report-out all-allure-results
+
+      - name: Prepare Combined GitHub Pages Deployment Directory
+        if: always()
+        run: |
+          mkdir -p gh-deploy/playwright
+          cp -r playwright-report/* gh-deploy/playwright/
+          cp -r allure-report-out/* gh-deploy/
+
+      - name: Manage GitHub Issues on Failure / Resolution
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ github.repository }}
+        run: |
+          node scripts/manage-issues.js
+
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+        run: |
+          node scripts/slack-notify.js
+
+      - name: Upload Final Consolidated Playwright Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Upload Final Consolidated Allure Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-report
+          path: allure-report-out/
+          retention-days: 30
+
+      - name: Deploy consolidated reports to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-deploy
+          keep_files: false
