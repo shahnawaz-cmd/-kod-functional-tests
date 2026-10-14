@@ -8,6 +8,10 @@ permissions:
   id-token: write
 
 on:
+  push:
+    branches:
+      - main
+      - master
   schedule:
     # Run daily at 00:00 UTC
     - cron: '0 0 * * *'
