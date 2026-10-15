@@ -34,6 +34,22 @@ async function globalSetup() {
 
   const succeeded = results.filter(r => r.status === 'fulfilled').length;
   console.log(`✅ [Global DNS Pre-warm] Pre-warmed ${succeeded}/${uniqueHosts.length} domains in OS DNS cache.\n`);
+
+  // Build and write host-resolver-rules map for Chromium to eliminate DNS drops in CI
+  const fs = require('fs');
+  const path = require('path');
+  const hostRules = [];
+  results.forEach(r => {
+    if (r.status === 'fulfilled' && r.value?.addresses?.length) {
+      hostRules.push(`MAP ${r.value.host} ${r.value.addresses[0]}`);
+    }
+  });
+
+  if (hostRules.length > 0) {
+    const rulesPath = path.resolve(__dirname, 'dns-rules.json');
+    fs.writeFileSync(rulesPath, JSON.stringify({ rules: hostRules.join(',') }), 'utf-8');
+    console.log(`🛡️ [DNS Resolver] Saved ${hostRules.length} Chromium host mapping rules to dns-rules.json`);
+  }
 }
 
 module.exports = globalSetup;

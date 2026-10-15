@@ -17,12 +17,30 @@ class HomePage {
   }
 
   async navigate() {
-    await this.page.goto('/', { waitUntil: 'domcontentloaded' });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        break;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        console.warn(`⚠️ [HomePage DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
+        await this.page.waitForTimeout(1500);
+      }
+    }
     await this.page.waitForTimeout(800);
   }
 
   async navigateWithOffer(offerCode) {
-    await this.page.goto(`/?offer=${offerCode}`, { waitUntil: 'domcontentloaded' });
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.page.goto(`/?offer=${offerCode}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        break;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        console.warn(`⚠️ [HomePage DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
+        await this.page.waitForTimeout(1500);
+      }
+    }
     await this.page.waitForTimeout(800);
   }
 

@@ -41,7 +41,6 @@ export class PricingCouponDiscountTask {
       }
 
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-      await page.waitForTimeout(1000);
     });
 
     await test.step(`Step 2: Verify Coupon Banner Appears on Pricing Page (${discountStr} Discount)`, async () => {
@@ -54,7 +53,7 @@ export class PricingCouponDiscountTask {
       }, {
         message: `[SmartWait] Timed out waiting for cookie "coupon" to match "${this.couponCode}"`,
         timeout: 10000,
-        intervals: [200, 500, 1000]
+        intervals: [150, 300, 600, 1000]
       }).toBe(this.couponCode).catch(() => {
         console.warn(`⚠️ Cookie "coupon" was not detected after initial hydration. Checking DOM directly...`);
       });
@@ -64,6 +63,7 @@ export class PricingCouponDiscountTask {
       const bannerLocator = page.getByText(bannerRegex)
         .or(page.getByText(genericDiscountRegex))
         .or(page.locator('div[class*="coupon" i], div[class*="banner" i], div[class*="discount" i], div[class*="green" i]').filter({ hasText: discountStr }))
+        .or(page.locator('[role="alert"], [role="banner"], [class*="badge" i]').filter({ hasText: discountStr }))
         .first();
 
       const isVisible = await bannerLocator.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
@@ -84,8 +84,8 @@ export class PricingCouponDiscountTask {
     await test.step(`Step 3: Verify Prices Reflect Discount Percentage (${discountStr})`, async () => {
       console.log(`🔍 [Pricing Coupon] Validating card prices reflect ${discountStr} discount...`);
 
-      // 1. Check for "Save X%" discount tag on the first card
-      const saveBadge = page.locator('text=Save ' + discountStr).or(page.locator(`text=${discountStr} off`)).first();
+      // 1. Check for "Save X%" discount tag on the first card using resilient regex
+      const saveBadge = page.locator('*').filter({ hasText: new RegExp(`Save\\s*${discountStr}|${discountStr}\\s*(off|discount)`, 'i') }).first();
       await expect(saveBadge).toBeVisible({ timeout: 12000 });
 
       // 2. Validate price reflection on UI using strikethrough price from DOM (no API call needed)

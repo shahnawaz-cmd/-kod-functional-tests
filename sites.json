@@ -46,5 +46,23 @@
     "brand": "cadillac",
     "name": "CadillacWindowSticker",
     "url": "https://cadillacwindowsticker.com"
+  },
+  {
+    "id": "kia",
+    "brand": "kia",
+    "name": "KiaWindowSticker",
+    "url": "https://kiawindowsticker.com"
+  },
+  {
+    "id": "lexus",
+    "brand": "lexus",
+    "name": "LexusWindowSticker",
+    "url": "https://lexuswindowsticker.com"
+  },
+  {
+    "id": "porsche",
+    "brand": "porsche",
+    "name": "PorscheWindowSticker",
+    "url": "https://porschewindowsticker.com"
   }
 ]
