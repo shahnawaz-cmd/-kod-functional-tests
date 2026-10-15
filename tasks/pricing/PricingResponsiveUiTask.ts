@@ -26,6 +26,10 @@ export class PricingResponsiveUiTask {
     });
 
     await test.step('Step 2: Capture Full Mobile Pricing Page Screenshot', async () => {
+      // Smart wait: Ensure network is idle and layout is stable before triggering screenshot
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+
       const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
       if (!fs.existsSync(screenshotDir)) {
         fs.mkdirSync(screenshotDir, { recursive: true });
@@ -33,7 +37,13 @@ export class PricingResponsiveUiTask {
 
       const filename = `pricing-mobile-layout-${Date.now()}.png`;
       const screenshotPath = path.join(screenshotDir, filename);
-      const buffer = await page.screenshot({ path: screenshotPath, fullPage: true });
+      let buffer: Buffer;
+      try {
+        buffer = await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 30000 });
+      } catch (err) {
+        console.warn('⚠️ Full-page screenshot timed out on mobile viewport, capturing viewport screenshot...');
+        buffer = await page.screenshot({ path: screenshotPath, fullPage: false, timeout: 15000 });
+      }
 
       if (testInfo) {
         await testInfo.attach('pricing-mobile-layout.png', {

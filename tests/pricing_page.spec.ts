@@ -10,12 +10,22 @@ import { PricingToCheckoutNavigationTask } from '../tasks/pricing/PricingToCheck
 
 // Helper function to resolve pricing route based on project domain
 function getPricingRoute(testInfo: any): string {
-  const baseURL = testInfo.project.use?.baseURL || '';
-  const projectName = testInfo.project.name || '';
-  if (baseURL.includes('detailedvehiclehistory.com') || projectName.includes('DetailedVehicleHistory')) {
-    return '/vin-check-rates';
-  }
   return '/pricing';
+}
+
+// Resilient helper to navigate to pricing route with automated retry against DNS/network stalls
+async function navigateToPricing(page: any, testInfo: any) {
+  const pricingRoute = getPricingRoute(testInfo);
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await page.goto(pricingRoute, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      break;
+    } catch (err: any) {
+      if (attempt === 3) throw err;
+      console.warn(`⚠️ [Pricing Navigation Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
+      await page.waitForTimeout(1500);
+    }
+  }
 }
 
 test.describe('Pricing Page Suite', () => {
@@ -37,18 +47,7 @@ test.describe('Pricing Page Suite', () => {
       await cdp.send('Network.clearBrowserCache').catch(() => {});
     }
 
-    // Navigate to current project's pricing route with resilient retry
-    const pricingRoute = getPricingRoute(testInfo);
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await page.goto(pricingRoute, { waitUntil: 'domcontentloaded', timeout: 25000 });
-        break;
-      } catch (err: any) {
-        if (attempt === 3) throw err;
-        console.warn(`⚠️ [Pricing Page DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
-        await page.waitForTimeout(1500);
-      }
-    }
+    await navigateToPricing(page, testInfo);
     const task = new PricingApiParityTask();
     await task.performAs(page);
 
@@ -64,8 +63,7 @@ test.describe('Pricing Page Suite', () => {
 
     testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
-    const pricingRoute = getPricingRoute(testInfo);
-    await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
+    await navigateToPricing(page, testInfo);
     const task = new PricingTabSwitchTask();
     await task.performAs(page);
 
@@ -81,8 +79,7 @@ test.describe('Pricing Page Suite', () => {
 
     testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
-    const pricingRoute = getPricingRoute(testInfo);
-    await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
+    await navigateToPricing(page, testInfo);
     const task = new PricingFaqAndNavigationTask();
     await task.performAs(page);
 
@@ -100,8 +97,7 @@ test.describe('Pricing Page Suite', () => {
       await page.setViewportSize({ width: 393, height: 851 });
     }
 
-    const pricingRoute = getPricingRoute(testInfo);
-    await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
+    await navigateToPricing(page, testInfo);
     const task = new PricingResponsiveUiTask();
     await task.performAs(page, testInfo);
 
@@ -121,8 +117,7 @@ test.describe('Pricing Page Suite', () => {
 
     testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
-    const pricingRoute = getPricingRoute(testInfo);
-    await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
+    await navigateToPricing(page, testInfo);
     const task = new PricingRegionalCurrencyTask();
     await task.performAs(page, testInfo);
 

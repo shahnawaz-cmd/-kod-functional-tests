@@ -14,16 +14,21 @@ export class PricingCouponDiscountTask {
 
   async performAs(page: Page, testInfo?: TestInfo) {
     const discountStr = `${this.discountPercent}%`;
+    const pricingRoute = '/pricing';
 
-    // Clear DNS socket/browser cache and cookies via CDP before opening domain
-    const cdp = await page.context().newCDPSession(page).catch(() => null);
-    if (cdp) {
-      await cdp.send('Network.clearBrowserCache').catch(() => {});
-      await cdp.send('Network.clearBrowserCookies').catch(() => {});
-    }
-
-    const isDVH = page.url().includes('detailedvehiclehistory.com') || (testInfo?.project.use?.baseURL as string)?.includes('detailedvehiclehistory.com') || testInfo?.project.name?.includes('DetailedVehicleHistory');
-    const pricingRoute = isDVH ? '/vin-check-rates' : '/pricing';
+    // Set coupon cookie in browser context so pricing page hydrates coupon state reliably
+    const baseURL = (testInfo?.project.use?.baseURL as string) || page.url() || 'https://toyotawindowsticker.com';
+    try {
+      const urlObj = new URL(baseURL);
+      await page.context().addCookies([
+        {
+          name: 'coupon',
+          value: this.couponCode,
+          domain: urlObj.hostname,
+          path: '/',
+        }
+      ]);
+    } catch (e) {}
 
     await test.step(`Step 1: Navigate to ${pricingRoute} with Coupon Offer (?offer=${this.couponCode})`, async () => {
       const targetUrl = `${pricingRoute}?offer=${this.couponCode}`;

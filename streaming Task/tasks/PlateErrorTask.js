@@ -191,8 +191,17 @@ class PlateErrorTask {
     if (!isAllowedSite) return;
 
     // 2. Navigate & Initial Flow Detection: Only run if streaming flow is detected
-    await this.page.goto('/');
-    await this.page.waitForLoadState('domcontentloaded');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        break;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        console.warn(`⚠️ [PlateErrorTask DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
+        await this.page.waitForTimeout(1500);
+      }
+    }
+    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
     const isStreaming = await this.ensureStreamingFlow(testInfo);
     if (!isStreaming) return;
 
