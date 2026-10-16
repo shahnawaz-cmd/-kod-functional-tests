@@ -181,14 +181,14 @@ export class Case5VerifyClassicEditableFeature {
       .or(page.getByText('1961', { exact: true }))
       .or(page.locator('[role="option"], [role="listbox"] li, .dropdown-menu li, ul li').filter({ hasText: /\d{4}/ }).first().locator('visible=true')); // Ensure option is visible
     await yearOption.first().waitFor({ state: 'visible', timeout: 10000 }); // Wait for the specific option to be visible
-    await yearOption.first().click({ force: true });
-
-    // 2. Select Make (Wait for get_classic_make API response)
-    await page.waitForResponse(
-      (res) => res.url().includes('get_classic_make') && res.status() === 200,
-      { timeout: 15000 }
-    ).catch(() => null);
-    await page.waitForTimeout(500);
+    // 2. Select Year and concurrently wait for get_classic_make API response
+    await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes('get_classic_make') && (res.status() === 200 || res.status() === 304),
+        { timeout: 15000 }
+      ).catch(() => null),
+      yearOption.first().click({ force: true })
+    ]);
 
     const makeInput = page.getByRole('textbox', { name: /make/i })
       .or(page.getByPlaceholder(/make/i))
@@ -197,23 +197,26 @@ export class Case5VerifyClassicEditableFeature {
       .first();
     await makeInput.waitFor({ state: 'visible', timeout: this.timeout });
     await makeInput.click({ force: true });
-    await page.waitForTimeout(300);
 
     const ajsMake = page.getByRole('option', { name: 'AJS' }).or(page.getByText('AJS', { exact: true }));
-    const firstMake = page.locator('[role="option"], [role="listbox"] li, .dropdown-menu li, ul li').filter({ hasText: /.+/ }).first().locator('visible=true'); // Ensure option is visible
+    const firstMake = page.locator('[role="option"], [role="listbox"] li, .dropdown-menu li, ul li').filter({ hasText: /.+/ }).first().locator('visible=true');
 
-    if (await ajsMake.first().isVisible({ timeout: 2000 }).catch(() => false)) {
-      await ajsMake.first().click({ force: true });
-    } else {
-      await firstMake.click({ force: true });
-    }
+    // 3. Select Make and concurrently wait for get_classic_model API response
+    const selectMakeAction = async () => {
+      if (await ajsMake.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+        await ajsMake.first().click({ force: true });
+      } else {
+        await firstMake.click({ force: true });
+      }
+    };
 
-    // 3. Select Model (Wait for get_classic_model API response)
-    await page.waitForResponse(
-      (res) => res.url().includes('get_classic_model') && res.status() === 200,
-      { timeout: 15000 }
-    ).catch(() => null);
-    await page.waitForTimeout(500);
+    await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes('get_classic_model') && (res.status() === 200 || res.status() === 304),
+        { timeout: 15000 }
+      ).catch(() => null),
+      selectMakeAction()
+    ]);
 
     const modelInput = page.getByRole('textbox', { name: /model/i })
       .or(page.getByPlaceholder(/model/i))
@@ -222,21 +225,21 @@ export class Case5VerifyClassicEditableFeature {
       .first();
     await modelInput.waitFor({ state: 'visible', timeout: this.timeout });
     await modelInput.click({ force: true });
-    await page.waitForTimeout(300);
 
     const modelOption = page.getByRole('option', { name: 'Model 16 350ms' })
       .or(page.getByText('Model 16 350ms', { exact: true }))
-      .or(page.locator('[role="option"], [role="listbox"] li, .dropdown-menu li, ul li').filter({ hasText: /.+/ }).first().locator('visible=true')); // Ensure option is visible
+      .or(page.locator('[role="option"], [role="listbox"] li, .dropdown-menu li, ul li').filter({ hasText: /.+/ }).first().locator('visible=true'));
 
     await modelOption.first().waitFor({ state: 'visible', timeout: 10000 });
-    await modelOption.first().click({ force: true });
 
-    // 4. Select Trim (Wait for get_classic_series API response)
-    await page.waitForResponse(
-      (res) => res.url().includes('get_classic_series') && res.status() === 200,
-      { timeout: 10000 }
-    ).catch(() => null);
-    await page.waitForTimeout(500);
+    // 4. Select Model and concurrently wait for get_classic_series API response
+    await Promise.all([
+      page.waitForResponse(
+        (res) => res.url().includes('get_classic_series') && (res.status() === 200 || res.status() === 304),
+        { timeout: 10000 }
+      ).catch(() => null),
+      modelOption.first().click({ force: true })
+    ]);
 
     const trimInput = page.getByRole('textbox', { name: /trim/i })
       .or(page.getByPlaceholder(/trim/i))

@@ -82,11 +82,17 @@ export class ClassicEditableSpecsUpdateOnly {
 
     // 2. Wait for Preview page
     await page.waitForURL(/.*(preview|sticker|license-preview|ws-preview).*/, { timeout: 60000 });
-    await page.waitForTimeout(1000); // React hydration
+    await page.waitForLoadState('domcontentloaded');
 
-    // 3. Click 'Click here to update'
-    const updateTrigger = page.locator('button, a, [role="button"], span')
-      .filter({ hasText: /(click here to update|update vehicle|edit specs)/i })
+    // Dismiss any blocking popups (e.g. Access Records or Exit Intent) if present
+    const closeOverlayBtn = page.locator('button[aria-label="Close"], button:has-text("✕"), [role="dialog"] button:has-text("Close"), .modal-close').first();
+    if (await closeOverlayBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
+      await closeOverlayBtn.click({ force: true }).catch(() => {});
+    }
+
+    // 3. Click 'Click here to update' with resilient locator
+    const updateTrigger = page.locator('button, a, [role="button"], span, p')
+      .filter({ hasText: /(click here to update|update vehicle|edit specs|update details)/i })
       .first();
     await updateTrigger.waitFor({ state: 'visible', timeout: 30000 });
     await updateTrigger.scrollIntoViewIfNeeded().catch(() => {});

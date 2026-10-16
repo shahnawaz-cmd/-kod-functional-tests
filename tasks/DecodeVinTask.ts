@@ -15,7 +15,7 @@ export interface VinTaskSelectors {
 
 export class DecodeVinTask {
   constructor(
-    public shouldClose: boolean = true,
+    public shouldClose: boolean = false,
     public skipSuccessClick: boolean = false,
     public useEuVin: boolean = false,
     private timeout: number = 60000,
@@ -151,8 +151,8 @@ export class DecodeVinTask {
 
     console.log('Success condition met.');
 
-    if (this.shouldClose) {
-      await page.close();
+    if (this.shouldClose && !page.isClosed()) {
+      await page.close().catch(() => {});
       console.log('Closed page as requested.');
     }
   }

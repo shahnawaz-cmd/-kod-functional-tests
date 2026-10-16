@@ -14,13 +14,18 @@ export class CouponAndPrevCouponVerification {
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     await page.waitForTimeout(1000);
 
-    // 2. Verify Cookie (Key: 'coupon', Value is dynamic, but we just check presence)
-    const cookies = await page.context().cookies();
-    const couponCookie = cookies.find(c => c.name === 'coupon');
-    if (!couponCookie) {
-      throw new Error('Failed: Coupon cookie not found.');
-    }
-    console.log(`Passed: Cookie found. Name: ${couponCookie.name}, Value: ${couponCookie.value}`);
+    // 2. Verify Cookie (Key: 'coupon', Value is dynamic, but we check presence) with expect.poll
+    let couponCookie: any = null;
+    await expect.poll(async () => {
+      const cookies = await page.context().cookies();
+      couponCookie = cookies.find(c => c.name === 'coupon');
+      return Boolean(couponCookie);
+    }, {
+      message: 'Failed: Coupon cookie not found in context',
+      timeout: 10000,
+      intervals: [500, 1000]
+    }).toBe(true);
+    console.log(`Passed: Cookie found. Name: ${couponCookie?.name}, Value: ${couponCookie?.value}`);
 
     // 3. Verify Banner with flexible case-insensitive regex
     const bannerRegex = new RegExp(`You have received\\s+${expectedDiscount}\\s+Discount`, 'i');
@@ -49,15 +54,20 @@ export class LowToHighCouponFlow {
     await page.goto('/?offer=get20', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
     
-    // Verify cookies: coupon should be get20, prev_coupon should be preview15
-    const cookies = await page.context().cookies();
-    const couponCookie = cookies.find(c => c.name === 'coupon');
-    const prevCouponCookie = cookies.find(c => c.name === 'prev_coupon');
-    
-    if (couponCookie?.value !== 'get20' || prevCouponCookie?.value !== firstCouponVal) {
-      throw new Error(`Failed: Cookie verification failed. Coupon: ${couponCookie?.value}, Prev: ${prevCouponCookie?.value}`);
-    }
-    console.log('Passed: Cookie verification (coupon=get20, prev_coupon=preview15)');
+    // Verify cookies with expect.poll: coupon should be get20, prev_coupon should be preview15
+    let currentCoupon = '';
+    let currentPrev = '';
+    await expect.poll(async () => {
+      const cookies = await page.context().cookies();
+      currentCoupon = cookies.find(c => c.name === 'coupon')?.value || '';
+      currentPrev = cookies.find(c => c.name === 'prev_coupon')?.value || '';
+      return currentCoupon === 'get20' && currentPrev === (firstCouponVal || 'preview15');
+    }, {
+      message: `Failed: Cookie verification failed. Coupon: "${currentCoupon}", Prev: "${currentPrev}"`,
+      timeout: 10000,
+      intervals: [500, 1000]
+    }).toBe(true);
+    console.log(`Passed: Cookie verification (coupon=${currentCoupon}, prev_coupon=${currentPrev})`);
 
     // 3. Verify Banner for high coupon (20%)
     const highBannerLocator = page.getByText(/You have received\s+20%\s+Discount/i)

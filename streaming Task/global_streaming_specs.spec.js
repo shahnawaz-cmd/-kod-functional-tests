@@ -38,12 +38,6 @@ test.beforeEach(async ({ context, page }) => {
   ).catch(() => {});
 });
 
-test.afterEach(async ({ page }) => {
-  if (!page.isClosed()) {
-    await page.close();
-  }
-});
-
 test('TC_01_VIN_Decode_17_Character_Validation', async ({ page }) => {
   const home = new HomePage(page);
   const preview = new PreviewPage(page);
@@ -61,7 +55,6 @@ test('TC_01_VIN_Decode_17_Character_Validation', async ({ page }) => {
     await preview.clickAccessRecordButton();
     await preview.closeAccessRecordPopup();
   });
-  await page.close();
 });
 
 test('TC_02_VIN_Decode_Classic_Validation', async ({ page }) => {
@@ -81,7 +74,6 @@ test('TC_02_VIN_Decode_Classic_Validation', async ({ page }) => {
     await preview.clickAccessRecordButton();
     await preview.closeAccessRecordPopup();
   });
-  await page.close();
 });
 
 test('TC_04_VHR_Revisit_Banner_Validation', async ({ page }, testInfo) => {
@@ -96,7 +88,6 @@ test('TC_04_VHR_Revisit_Banner_Validation', async ({ page }, testInfo) => {
   await test.step('Perform Revisit Banner Task', async () => {
     await revisitTask.perform(page, preview, 'vhr');
   });
-  await page.close();
 });
 
 // test('TC_05_Window_Sticker_Revisit_Banner_Validation', async ({ page }, testInfo) => {
@@ -137,7 +128,6 @@ test('TC_06_Preview_Page_Plan_Selection_Validation', async ({ page }) => {
       }
     }
   });
-  await page.close();
 });
 
 test('TC_07_Exit_Intent_Popup_Trigger_Validation', async ({ page }, testInfo) => {
@@ -151,7 +141,6 @@ test('TC_07_Exit_Intent_Popup_Trigger_Validation', async ({ page }, testInfo) =>
   await preview.verifyAndRedeemExitOffer();
   await expect(page.getByText('% OFF')).toBeVisible({ timeout: 60000 });
   await expect(page).toHaveURL(/.*offer=.*/);
-  await page.close();
 });
 
 test('TC_08_Home_To_Checkout_Price_Coupon_And_Email_Cache_Validation', async ({ page, isMobile }, testInfo) => {
@@ -231,8 +220,6 @@ test('TC_08_Home_To_Checkout_Price_Coupon_And_Email_Cache_Validation', async ({ 
     body: JSON.stringify(reportData, null, 2),
     contentType: 'application/json',
   });
-
-  await page.close();
 });
 
 // test('TC_09_Full_Checkout_Flow_Stripe_Visa_US_Validation', async ({ page }, testInfo) => {
@@ -322,34 +309,30 @@ test('TC_13_Classic_VIN_YMM_Edit_Validation', async ({ page, context }, testInfo
   const home = new HomePage(page);
   const preview = new PreviewPage(page);
   const classicVin = ClassicVinGenerator.getRandomClassicVin(testInfo.workerIndex);
-  try {
-    await context.clearCookies();
-    await context.clearPermissions();
-    await home.navigate();
-    await home.decodeVin(classicVin);
-    await page.waitForURL(/.*(\/preview|\/ws-preview).*/, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await preview.verifySpecsVisible('Records found for', 60000);
-    const ymmTask = new StreamingYmmEditTask(page);
-    const selectedYMM = await ymmTask.execute();
+  await context.clearCookies();
+  await context.clearPermissions();
+  await home.navigate();
+  await home.decodeVin(classicVin);
+  await page.waitForURL(/.*(\/preview|\/ws-preview).*/, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await preview.verifySpecsVisible('Records found for', 60000);
+  const ymmTask = new StreamingYmmEditTask(page);
+  const selectedYMM = await ymmTask.execute();
 
-    console.log(`\n📋 [TC_13] Classic YMM Selected Dropdowns:\nVIN: ${classicVin}\n${JSON.stringify(selectedYMM, null, 2)}\n`);
-    await testInfo.attach('TC_13_Selected_YMM_Data', {
-      body: JSON.stringify({ vin: classicVin, ...selectedYMM }, null, 2),
-      contentType: 'application/json',
-    });
+  console.log(`\n📋 [TC_13] Classic YMM Selected Dropdowns:\nVIN: ${classicVin}\n${JSON.stringify(selectedYMM, null, 2)}\n`);
+  await testInfo.attach('TC_13_Selected_YMM_Data', {
+    body: JSON.stringify({ vin: classicVin, ...selectedYMM }, null, 2),
+    contentType: 'application/json',
+  });
 
-    // Wait 5s+ for frontend to fully update with the modified data
-    await page.waitForTimeout(5000);
+  // Wait 5s+ for frontend to fully update with the modified data
+  await page.waitForTimeout(5000);
 
-    // Capture screenshot of the updated frontend and attach to report
-    const ss13 = await page.screenshot({ fullPage: false });
-    await testInfo.attach('TC_13_Updated_Frontend_Screenshot', {
-      body: ss13,
-      contentType: 'image/png',
-    });
-  } finally {
-    await page.close();
-  }
+  // Capture screenshot of the updated frontend and attach to report
+  const ss13 = await page.screenshot({ fullPage: false });
+  await testInfo.attach('TC_13_Updated_Frontend_Screenshot', {
+    body: ss13,
+    contentType: 'image/png',
+  });
 });
 
 // test('TC_14_Classic_Manual_Input_Validation', async ({ page, context }, testInfo) => {
@@ -391,34 +374,30 @@ test('TC_15_Classic_Editible_Specs_Update', async ({ page, context }, testInfo) 
   const preview = new PreviewPage(page);
   const classicVin = ClassicVinGenerator.getRandomClassicVin(testInfo.workerIndex);
 
-  try {
-    await context.clearCookies();
-    await context.clearPermissions();
-    await home.navigate();
-    await home.decodeVin(classicVin);
-    await page.waitForURL(/.*(\/preview|\/ws-preview).*/, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await preview.verifySpecsVisible('Records found for', 60000);
-    const task = new ClassicEditableSpecsUpdateTask(page);
-    const specs = await task.execute(preview, 60000, testInfo);
-    
-    console.log(`\n📋 [TC_15] Classic Editable Specs Update:\nVIN: ${classicVin}\n${JSON.stringify(specs, null, 2)}\n`);
-    await testInfo.attach('TC_15_Updated_Specs_Data', {
-      body: JSON.stringify({ vin: classicVin, ...specs }, null, 2),
-      contentType: 'application/json',
-    });
+  await context.clearCookies();
+  await context.clearPermissions();
+  await home.navigate();
+  await home.decodeVin(classicVin);
+  await page.waitForURL(/.*(\/preview|\/ws-preview).*/, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await preview.verifySpecsVisible('Records found for', 60000);
+  const task = new ClassicEditableSpecsUpdateTask(page);
+  const specs = await task.execute(preview, 60000, testInfo);
+  
+  console.log(`\n📋 [TC_15] Classic Editable Specs Update:\nVIN: ${classicVin}\n${JSON.stringify(specs, null, 2)}\n`);
+  await testInfo.attach('TC_15_Updated_Specs_Data', {
+    body: JSON.stringify({ vin: classicVin, ...specs }, null, 2),
+    contentType: 'application/json',
+  });
 
-    // Wait 5s+ for frontend to fully update with the modified data
-    await page.waitForTimeout(5000);
+  // Wait 5s+ for frontend to fully update with the modified data
+  await page.waitForTimeout(5000);
 
-    // Capture screenshot of the updated frontend and attach to report
-    const ss15 = await page.screenshot({ fullPage: false });
-    await testInfo.attach('TC_15_Updated_Frontend_Screenshot', {
-      body: ss15,
-      contentType: 'image/png',
-    });
-  } finally {
-    await page.close();
-  }
+  // Capture screenshot of the updated frontend and attach to report
+  const ss15 = await page.screenshot({ fullPage: false });
+  await testInfo.attach('TC_15_Updated_Frontend_Screenshot', {
+    body: ss15,
+    contentType: 'image/png',
+  });
 });
 
 // test('TC_16_PayPal_Successful_Payment', async ({ page, context }) => {
@@ -444,7 +423,6 @@ test('TC_17_EU_VIN_Confirmation_No', async ({ page }, testInfo) => {
   await home.navigate();
   await home.decodeVin('SHHEU88701U002018', 3);
   await modifier.modifyEUVinByYMMUsingNo();
-  await page.close();
 });
 
 
@@ -454,7 +432,6 @@ test('TC_20_Default_Plan_Checking', async ({ page }) => {
   const home = new HomePage(page);
   const handler = new DefaultPlanCheckingHandler(page);
   await handler.sitesettingDefaultPlansVerifies(home);
-  await page.close();
 });
 
 // test('TC_21_Window_Sticker_Default_Plan', async ({ page }) => {
@@ -509,8 +486,6 @@ test('TC_24_Coupon_Banner_Hierarchy_And_Persistence_Validation', async ({ page }
     body: JSON.stringify(result, null, 2),
     contentType: 'application/json',
   });
-
-  await page.close();
 });
 
 test('TC_25_Home_Page_Exit_Intent_Banner_Validation', async ({ page, isMobile }, testInfo) => {
@@ -533,7 +508,6 @@ test('TC_25_Home_Page_Exit_Intent_Banner_Validation', async ({ page, isMobile },
   // Trigger the exit intent pop-up logic using ExitIntentHelper task
   await ExitIntentHelper.triggerExitIntent(page);
 
-  await page.close();
   console.log('✅ [TC_25] Home page exit intent banner validation executed.');
 });
 
@@ -542,7 +516,6 @@ test('TC_26_VIN_Error_Validation', async ({ page }, testInfo) => {
   await test.step('Validate Alphabet VIN Error Flow', async () => {
     await errorTask.execute(testInfo);
   });
-  await page.close();
 });
 
 test('TC_27_Plate_Error_Validation', async ({ page }, testInfo) => {
@@ -550,7 +523,6 @@ test('TC_27_Plate_Error_Validation', async ({ page }, testInfo) => {
   await test.step('Validate License Plate Error Flow', async () => {
     await plateTask.execute(testInfo);
   });
-  await page.close();
 });
 
 test('TC_28_URL_Space_Handling_Validation', async ({ page }, testInfo) => {
@@ -558,7 +530,6 @@ test('TC_28_URL_Space_Handling_Validation', async ({ page }, testInfo) => {
   await test.step('Validate URL Space Handling and Error Flow', async () => {
     await urlSpaceTask.execute(testInfo);
   });
-  await page.close();
 });
 
 test('TC_29_Error_Page_To_Home_Collection_Validation', async ({ page }, testInfo) => {
@@ -574,7 +545,6 @@ test('TC_29_Error_Page_To_Home_Collection_Validation', async ({ page }, testInfo
   await test.step('Validate Error Page to Home Collection (Notify Me) Flow', async () => {
     await task.execute(testInfo, timeout);
   });
-  await page.close();
 });
 
 test('TC_30_Exit_Popup_Behaviour_On_Sample_Links_Validation', async ({ page, context }, testInfo) => {
@@ -592,8 +562,6 @@ test('TC_30_Exit_Popup_Behaviour_On_Sample_Links_Validation', async ({ page, con
 
   const exitPopupTask = new ExitPopupBehaviour();
   await exitPopupTask.performAs(page, context);
-
-  await page.close();
 });
 
 

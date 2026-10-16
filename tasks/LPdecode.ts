@@ -1,4 +1,4 @@
-﻿import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { Actor } from '../actors/Actor';
 import { fastInputWithHealing, clickWithHealing, locateElementWithHealing } from '../utils/selfHealingLocator';
 
@@ -19,10 +19,10 @@ export class LPcases {
           '[role="tab"]:has-text("License Plate")',
           'text=By License Plate'
         ],
-        { timeout: timeout / 2 }
+        { timeout: 10000 }
       );
 
-      await activeTabLocator.waitFor({ state: 'visible', timeout: timeout / 4 });
+      await activeTabLocator.waitFor({ state: 'visible', timeout: 5000 });
       console.log('LP Tab Found and visible in Website');
       await activeTabLocator.click({ force: true, timeout: 5000 });
       isTabPresentAndClickable = true;
@@ -45,7 +45,7 @@ export class LPcases {
           'input[aria-label*="plate" i]',
           '[data-testid*="plate"]',
         ],
-        { timeout }
+        { timeout: 15000 }
       );
 
       // 2. Select State inside the active in-page search form
@@ -61,7 +61,7 @@ export class LPcases {
           .or(page.locator('[role="combobox"]'))
           .first();
 
-        await stateDropdown.waitFor({ state: 'visible', timeout });
+        await stateDropdown.waitFor({ state: 'visible', timeout: 15000 });
         await stateDropdown.click({ force: true, timeout: 5000 });
         await stateDropdown.fill('Texas').catch(() => {});
 
