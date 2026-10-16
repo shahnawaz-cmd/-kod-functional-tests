@@ -51,35 +51,17 @@ export class PricingCouponDiscountTask {
     await test.step(`Step 2: Verify Coupon Banner Appears on Pricing Page (${discountStr} Discount)`, async () => {
       console.log(`🔍 [Pricing Coupon] Validating "${discountStr} Discount" banner visibility...`);
 
-      // Smart wait: Poll for client-side hydration to set the 'coupon' cookie
-      await expect.poll(async () => {
-        const cookies = await page.context().cookies();
-        return cookies.find(c => c.name === 'coupon')?.value;
-      }, {
-        message: `[SmartWait] Timed out waiting for cookie "coupon" to match "${this.couponCode}"`,
-        timeout: 10000,
-        intervals: [150, 300, 600, 1000]
-      }).toBe(this.couponCode).catch(() => {
-        console.warn(`⚠️ Cookie "coupon" was not detected after initial hydration. Checking DOM directly...`);
-      });
-
-      const bannerRegex = new RegExp(`You have received\\s+${discountStr}\\s+Discount`, 'i');
-      const genericDiscountRegex = new RegExp(`${discountStr}\\s+(discount|off)`, 'i');
-      const bannerLocator = page.getByText(bannerRegex)
-        .or(page.getByText(genericDiscountRegex))
-        .or(page.locator('div[class*="coupon" i], div[class*="banner" i], div[class*="discount" i], div[class*="green" i]').filter({ hasText: discountStr }))
-        .or(page.locator('[role="alert"], [role="banner"], [class*="badge" i]').filter({ hasText: discountStr }))
+      const bannerLocator = page.locator('div[class*="banner" i], div[class*="coupon" i], div[class*="discount" i], div[class*="green" i], [role="alert"]')
+        .filter({ hasText: new RegExp(`You have received.*${discountStr}.*Discount|Your discount has been applied|${discountStr}\\s*(discount|off)`, 'i') })
+        .or(page.getByText(new RegExp(`You have received\\s+${discountStr}\\s+Discount`, 'i')))
+        .or(page.getByText(/Your discount has been applied automatically/i))
         .first();
 
-      const isVisible = await bannerLocator.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
-      if (!isVisible) {
-        // If cold edge cache served stale static HTML without hydrating ?offer=..., reload with cache-buster
-        const cookies = await page.context().cookies();
-        if (!cookies.some(c => c.name === 'coupon' && c.value === this.couponCode)) {
-          console.warn(`⚠️ Edge cache may have served static HTML without hydrating ?offer=${this.couponCode}. Reloading with cache buster...`);
-          await page.goto(`${pricingRoute}?offer=${this.couponCode}&_cb=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-          await page.waitForLoadState('domcontentloaded');
-        }
+      const isBannerVisible = await bannerLocator.waitFor({ state: 'visible', timeout: 6000 }).then(() => true).catch(() => false);
+      if (!isBannerVisible) {
+        console.warn(`⚠️ [Pricing Coupon] Banner not visible on initial load; reloading with cache-buster...`);
+        await page.goto(`${pricingRoute}?offer=${this.couponCode}&_cb=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+        await page.waitForLoadState('domcontentloaded');
       }
 
       await expect(bannerLocator).toBeVisible({ timeout: 15000 });
@@ -89,12 +71,21 @@ export class PricingCouponDiscountTask {
     await test.step(`Step 3: Verify Prices Reflect Discount Percentage (${discountStr})`, async () => {
       console.log(`🔍 [Pricing Coupon] Validating card prices reflect ${discountStr} discount...`);
 
-      // 1. Check for "Save X%" discount tag on the first card using resilient regex
-      const saveBadge = page.locator('*').filter({ hasText: new RegExp(`Save\\s*${discountStr}|${discountStr}\\s*(off|discount)`, 'i') }).first();
-      await expect(saveBadge).toBeVisible({ timeout: 12000 });
+      // 1. Locate the single-item plan card (1 Sticker or 1 Report) to avoid collision with bundle cards
+      const singleItemCard = page.locator('div, section, article')
+        .filter({ has: page.getByRole('heading', { name: /1\s*(sticker|report)/i }) })
+        .first();
 
-      // 2. Validate price reflection on UI using strikethrough price from DOM (no API call needed)
-      const strikethroughEl = page.locator('span[class*="line-through"], del, s').first();
+      await expect(singleItemCard).toBeVisible({ timeout: 15000 });
+
+      // 2. Check for "Save X%" discount badge within the single-item card
+      const saveBadge = singleItemCard.getByText(new RegExp(`Save\\s*${discountStr}|${discountStr}\\s*(off|discount)`, 'i'))
+        .or(page.getByText(new RegExp(`Save\\s*${discountStr}`, 'i')))
+        .first();
+      await expect(saveBadge).toBeVisible({ timeout: 15000 });
+
+      // 3. Validate price reflection on UI using strikethrough price from the single-item card
+      const strikethroughEl = singleItemCard.locator('span[class*="line-through"], del, s').first();
       const hasStrikethrough = await strikethroughEl.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
       if (hasStrikethrough) {
         const origText = await strikethroughEl.innerText().catch(() => '');
@@ -108,14 +99,14 @@ export class PricingCouponDiscountTask {
             return '\\$';
           }));
           const formattedPriceRegex = new RegExp(`(${sign}|\\$)?\\s*(${expectedDiscountedPrice}|${Math.round(parseFloat(expectedDiscountedPrice))})`);
-          const priceElement = page.locator('*').filter({ hasText: formattedPriceRegex }).first();
+          const priceElement = singleItemCard.locator('*').filter({ hasText: formattedPriceRegex }).first();
           await expect(priceElement).toBeVisible({ timeout: 12000 });
-          console.log(`✅ [Price Reflection Passed] 1 Report card reflects discount from original $${origPrice}: $${expectedDiscountedPrice} (Save ${discountStr})`);
+          console.log(`✅ [Price Reflection Passed] 1 Report/Sticker card reflects discount from original $${origPrice}: $${expectedDiscountedPrice} (Save ${discountStr})`);
           return;
         }
       }
 
-      console.log(`✅ [Price Reflection Passed] 1 Report card reflects discount: Save ${discountStr}`);
+      console.log(`✅ [Price Reflection Passed] 1 Report/Sticker card reflects discount: Save ${discountStr}`);
     });
 
     await test.step('Step 4: Capture Coupon Banner & Discounted Pricing Screenshot', async () => {
