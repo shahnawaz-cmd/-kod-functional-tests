@@ -45,7 +45,7 @@ export class PricingCouponDiscountTask {
         }
       }
 
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForLoadState('domcontentloaded');
     });
 
     await test.step(`Step 2: Verify Coupon Banner Appears on Pricing Page (${discountStr} Discount)`, async () => {
@@ -78,7 +78,7 @@ export class PricingCouponDiscountTask {
         if (!cookies.some(c => c.name === 'coupon' && c.value === this.couponCode)) {
           console.warn(`⚠️ Edge cache may have served static HTML without hydrating ?offer=${this.couponCode}. Reloading with cache buster...`);
           await page.goto(`${pricingRoute}?offer=${this.couponCode}&_cb=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-          await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+          await page.waitForLoadState('domcontentloaded');
         }
       }
 

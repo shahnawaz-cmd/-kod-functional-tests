@@ -64,5 +64,23 @@
     "brand": "porsche",
     "name": "PorscheWindowSticker",
     "url": "https://porschewindowsticker.com"
+  },
+  {
+    "id": "alfaromeo",
+    "brand": "alfaromeo",
+    "name": "AlfaRomeoWindowSticker",
+    "url": "https://alfaromeowindowsticker.com"
+  },
+  {
+    "id": "ford",
+    "brand": "ford",
+    "name": "FordWindowStickerByVin",
+    "url": "https://fordwindowstickerbyvin.com"
+  },
+  {
+    "id": "chevrolet",
+    "brand": "chevrolet",
+    "name": "ChevroletWindowSticker",
+    "url": "https://chevroletwindowsticker.com"
   }
 ]

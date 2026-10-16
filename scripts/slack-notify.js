@@ -76,16 +76,23 @@ const effectivePassed = (stats.expected || 0) + (stats.flaky || 0);
 const failedTests = stats.unexpected || 0;
 const totalTests = effectivePassed + failedTests;
 
-const isFailureAlertMode = process.argv.includes('--mode=failure') || process.env.ALERT_MODE === 'site-failure';
+const isSiteMode = process.argv.includes('--site-mode') || Boolean(process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT);
 const currentSiteName = process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT || '';
 const currentSiteUrl = process.env.SITE_URL || process.env.BASE_URL || '';
+const suiteType = process.env.SUITE_TYPE || 'Tests';
+const browserName = process.env.BROWSER_NAME || 'Desktop';
+const runOutcome = process.env.RUN_STATUS || (failedTests === 0 && totalTests > 0 ? 'success' : (failedTests > 0 ? 'failure' : 'unknown'));
 
-const isPassing = failedTests === 0 && totalTests > 0;
+const isPassing = (runOutcome === 'success' || (failedTests === 0 && totalTests > 0)) && runOutcome !== 'failure';
 const statusColor = isPassing ? '#2eb886' : '#e01e5a';
 
-const titleText = isPassing
-  ? `✅ KOD Window Sticker Suite — All Passed`
-  : `🚨 KOD Window Sticker Suite — ${failedTests} Failed`;
+const titleText = isSiteMode
+  ? (isPassing
+      ? `✅ [${currentSiteName}] ${suiteType} (${browserName}) — Passed`
+      : `🚨 [${currentSiteName}] ${suiteType} (${browserName}) — ${failedTests > 0 ? `${failedTests} Failed` : 'Failed'}`)
+  : (isPassing
+      ? `✅ KOD Window Sticker Suite — All Passed`
+      : `🚨 KOD Window Sticker Suite — ${failedTests} Failed`);
 
 // Count active sites from sites.json
 let siteCount = 5;
@@ -103,6 +110,23 @@ const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' 
 const [owner, repoName] = githubRepo.split('/');
 const pagesUrl = owner && repoName ? `https://${owner}.github.io/${repoName}` : '';
 
+const sectionText = isSiteMode
+  ? [
+      `*Website:* <${currentSiteUrl || `https://${currentSiteName.toLowerCase()}.com`}|${currentSiteName}>`,
+      `*Scope:* 🎯 *${suiteType}*  •  📱 *${browserName}*`,
+      `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests > 0 ? `${failedTests} Test(s) Failing` : 'Run Failed'}*`}`,
+      totalTests > 0
+        ? `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`
+        : `*Outcome:* ${isPassing ? '✅ Success' : '❌ Failure'}`,
+      `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
+    ].join('\n')
+  : [
+      `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing*`}`,
+      `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*`,
+      `*Target Scope:* 🚗 *${siteCount} Domains* (Desktop & Mobile)`,
+      `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
+    ].join('\n');
+
 const blocks = [
   {
     type: 'header',
@@ -116,12 +140,7 @@ const blocks = [
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: [
-        `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing*`}`,
-        `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*`,
-        `*Target Scope:* 🚗 *${siteCount} Domains* (Desktop & Mobile)`,
-        `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
-      ].join('\n')
+      text: sectionText
     }
   },
   {

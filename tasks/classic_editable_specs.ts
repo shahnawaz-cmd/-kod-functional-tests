@@ -282,7 +282,7 @@ export class ClassicEditableSpecs {
     const page = actor.getPage();
     await page.context().clearCookies();
     await page.goto('/');
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
 
     const cookies = await page.context().cookies();
     const isStreaming = cookies.some((c) => c.name === 'checkout_flow' && c.value === 'streaming');

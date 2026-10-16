@@ -304,7 +304,7 @@ class CouponBannerHandler {
     }
 
     // 2. Smart wait: Wait for client-side Next.js hydration or network activity to settle
-    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded');
 
     // 3. Smart wait for Banner visibility
     const { isVisible: bannerFound, text: bannerText } = await this.waitForBannerElement(12000);
@@ -330,7 +330,7 @@ class CouponBannerHandler {
 
     // 2. Smart wait: Apply higher coupon and wait for Next.js client-side state change
     await this.page.goto(`/?offer=${highCoupon}`, { waitUntil: 'domcontentloaded' });
-    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded');
 
     // Smart wait for banner element
     const { isVisible: isHighVisible, text: highBannerText } = await this.waitForBannerElement(12000);
@@ -348,7 +348,7 @@ class CouponBannerHandler {
     // 3. Persistence across sub-pages (/vin-decoder) with smart DOM + Cookie wait
     const stickerPath = '/vin-decoder';
     await this.page.goto(stickerPath, { waitUntil: 'domcontentloaded' });
-    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded');
 
     // Smart wait for persisted banner or cookie persistence
     const { isVisible: isPersistedVisible } = await this.waitForBannerElement(10000);

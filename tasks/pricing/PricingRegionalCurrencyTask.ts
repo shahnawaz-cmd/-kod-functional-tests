@@ -76,8 +76,8 @@ export class PricingRegionalCurrencyTask {
     await test.step(`Step 2: Reload Pricing Page (${pricingRoute}) with Regional Context`, async () => {
       console.log(`🔄 [Pricing] Navigating to ${pricingRoute} with regional session context...`);
       await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-      await page.waitForTimeout(1000);
+      await page.waitForLoadState('domcontentloaded');
+      await page.waitForTimeout(500);
     });
 
     await test.step(`Step 3: Validate Pricing Currency Matches Expected Code (${expectedCurrency})`, async () => {
@@ -87,16 +87,29 @@ export class PricingRegionalCurrencyTask {
       let firstPlan: any = null;
 
       await expect.poll(async () => {
-        const response = await page.request.get('/api/pricing?sticker=1&dealer=1', {
-          headers: {
-            'cwa_country': country,
-            'cwa_ip': ip,
-            'X-Forwarded-For': ip
-          }
-        }).catch(() => null);
+        let data: any = null;
+        try {
+          data = await page.evaluate(async () => {
+            const res = await fetch('/api/pricing?sticker=1&dealer=1');
+            return res.ok ? await res.json() : null;
+          });
+        } catch {}
 
-        if (!response || response.status() !== 200) return null;
-        const data = await response.json().catch(() => null);
+        if (!data) {
+          const response = await page.request.get('/api/pricing?sticker=1&dealer=1', {
+            headers: {
+              'Cookie': `cwa_ip=${ip}; cwa_country=${country}`,
+              'cwa_country': country,
+              'cwa_ip': ip,
+              'X-Forwarded-For': ip
+            }
+          }).catch(() => null);
+
+          if (response && response.status() === 200) {
+            data = await response.json().catch(() => null);
+          }
+        }
+
         firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
         return firstPlan?.currency_code;
       }, {
@@ -125,7 +138,7 @@ export class PricingRegionalCurrencyTask {
         // If client hydration was delayed or initial HTML was served from static cache, reload once with cookies active
         console.warn(`⚠️ [UI Render] Currency not yet visible in DOM. Reloading to force rehydration...`);
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.waitForLoadState('domcontentloaded');
 
         await expect.poll(async () => {
           const pageText = await page.evaluate(() => document.body.innerText).catch(() => '');

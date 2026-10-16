@@ -201,7 +201,7 @@ class PlateErrorTask {
         await this.page.waitForTimeout(1500);
       }
     }
-    await this.page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded');
     const isStreaming = await this.ensureStreamingFlow(testInfo);
     if (!isStreaming) return;
 

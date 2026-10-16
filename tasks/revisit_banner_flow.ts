@@ -13,8 +13,7 @@ export class RevisitBannerFlow {
 
     // 2. Navigate back to base URL using browser back
     await page.goBack();
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('domcontentloaded');
 
     // 3. Self-healing 'Grab it for only' button click
     await clickWithHealing(

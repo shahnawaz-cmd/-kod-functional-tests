@@ -152,8 +152,8 @@ export class DecodeVinTask {
     console.log('Success condition met.');
 
     if (this.shouldClose && !page.isClosed()) {
-      await page.close().catch(() => {});
-      console.log('Closed page as requested.');
+      // Intentionally delegated to Playwright native fixture teardown to preserve CI artifacts (traces/videos)
+      console.log('Task completed.');
     }
   }
 }

@@ -61,8 +61,6 @@ test.describe('UI/UX & Responsiveness Quality Audit', () => {
     await new TouchTargetTask().performAs(page);
     await new InputZoomGuardTask().performAs(page);
     await new MobileKeyboardTask().performAs(page);
-
-    await page.close();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -108,8 +106,6 @@ test.describe('UI/UX & Responsiveness Quality Audit', () => {
     await new TouchTargetTask().performAs(page);
     await new InputZoomGuardTask().performAs(page);
     await new MobileKeyboardTask().performAs(page);
-
-    await page.close();
   });
 
 });

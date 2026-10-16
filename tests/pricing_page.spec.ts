@@ -50,8 +50,6 @@ test.describe('Pricing Page Suite', () => {
     await navigateToPricing(page, testInfo);
     const task = new PricingApiParityTask();
     await task.performAs(page);
-
-    await page.close();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -66,8 +64,6 @@ test.describe('Pricing Page Suite', () => {
     await navigateToPricing(page, testInfo);
     const task = new PricingTabSwitchTask();
     await task.performAs(page);
-
-    await page.close();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -82,8 +78,6 @@ test.describe('Pricing Page Suite', () => {
     await navigateToPricing(page, testInfo);
     const task = new PricingFaqAndNavigationTask();
     await task.performAs(page);
-
-    await page.close();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -100,8 +94,6 @@ test.describe('Pricing Page Suite', () => {
     await navigateToPricing(page, testInfo);
     const task = new PricingResponsiveUiTask();
     await task.performAs(page, testInfo);
-
-    await page.close();
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -119,8 +111,6 @@ test.describe('Pricing Page Suite', () => {
 
     const task = new PricingRegionalCurrencyTask();
     await task.performAs(page, testInfo);
-
-    await page.close();
   });
 
   // test('TC_PRICING_06 — Verify coupon banner appearance and percentage price reflection on /pricing', async ({ page }, testInfo) => {
@@ -160,7 +150,5 @@ test.describe('Pricing Page Suite', () => {
     // 1. Perform Pricing to Checkout Navigation (handles resilient /pricing navigation with retry)
     const navTask = new PricingToCheckoutNavigationTask('any');
     await navTask.performAs(page, testInfo);
-
-    await page.close();
   });
 });

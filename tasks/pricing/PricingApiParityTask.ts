@@ -54,7 +54,7 @@ export class PricingApiParityTask {
     await test.step('Step 2: Validate Personal Pricing Cards on UI', async () => {
       console.log('🔍 [Pricing] Validating Personal pricing cards render on page...');
 
-      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForLoadState('domcontentloaded');
 
       if (apiPlans.length > 0) {
         for (const plan of apiPlans) {

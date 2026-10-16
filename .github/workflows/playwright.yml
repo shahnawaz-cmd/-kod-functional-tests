@@ -21,9 +21,26 @@ on:
   workflow_dispatch:
     inputs:
       site_filter:
-        description: 'Optional Site ID to run (e.g. "toyota", "dodge", or "all")'
-        required: false
+        description: 'Select website to run (or "all" for all websites)'
+        required: true
         default: 'all'
+        type: choice
+        options:
+          - all
+          - toyota
+          - dodge
+          - honda
+          - kia
+          - audi
+          - porsche
+          - mercedes
+          - cadillac
+          - gmc
+          - lexus
+          - gm
+          - alfaromeo
+          - ford
+          - chevrolet
 
 env:
   UV_THREADPOOL_SIZE: 64
@@ -69,6 +86,7 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         site: ${{ fromJson(needs.setup.outputs.matrix) }}
         browser:
@@ -154,6 +172,33 @@ jobs:
           path: allure-results/
           retention-days: 2
 
+      - name: Upload Raw Test Results & Videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+      - name: Send Instant Slack Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+          SITE_NAME: ${{ matrix.site.name }}
+          SITE_URL: ${{ matrix.site.url }}
+          BROWSER_NAME: ${{ matrix.browser }}
+          SUITE_TYPE: 'Checkout Funnel'
+          RUN_STATUS: ${{ steps.playwright-run.outcome }}
+        run: |
+          node scripts/slack-notify.js --site-mode
+
   # ─────────────────────────────────────────────────────────────
   # STEP 2B: RUN STANDALONE AUDITS PER SITE (SEPARATE RUNNER)
   # ─────────────────────────────────────────────────────────────
@@ -165,6 +210,7 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         site: ${{ fromJson(needs.setup.outputs.matrix) }}
         browser:
@@ -235,6 +281,33 @@ jobs:
           name: allure-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
           path: allure-results/
           retention-days: 2
+
+      - name: Upload Raw Test Results & Videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+      - name: Send Instant Slack Alert for ${{ matrix.site.name }} Audits (${{ matrix.browser }})
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+          SITE_NAME: ${{ matrix.site.name }}
+          SITE_URL: ${{ matrix.site.url }}
+          BROWSER_NAME: ${{ matrix.browser }}
+          SUITE_TYPE: 'Standalone Audits'
+          RUN_STATUS: ${{ steps.standalone-run.outcome }}
+        run: |
+          node scripts/slack-notify.js --site-mode
 
   # ─────────────────────────────────────────────────────────────
   # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
@@ -310,10 +383,9 @@ jobs:
           if [ -d "allure-report-out" ]; then
             cp -r allure-report-out/* gh-deploy/
           fi
-          # Keep GitHub Pages lightweight: drop videos, traces and any file > 5MB
-          # (full media is still available in the 'playwright-report' / 'allure-report' workflow artifacts)
-          find gh-deploy -type f \( -name '*.zip' -o -name '*.webm' -o -name '*.mp4' \) -delete
-          find gh-deploy -type f -size +5M -delete
+          # Keep GitHub Pages within storage budget: drop heavy trace archives > 10MB, but preserve failure videos
+          find gh-deploy -type f -name '*.zip' -size +10M -delete
+          find gh-deploy -type f -size +20M -delete
           echo "📦 GitHub Pages payload size:"; du -sh gh-deploy
 
       - name: Manage GitHub Issues on Failure / Resolution

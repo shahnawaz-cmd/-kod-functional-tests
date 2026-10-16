@@ -11,8 +11,7 @@ export class CouponAndPrevCouponVerification {
 
     // 1. Apply coupon via URL
     await page.goto(`/?offer=${couponCode}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-    await page.waitForTimeout(1000);
+    await page.waitForLoadState('domcontentloaded');
 
     // 2. Verify Cookie (Key: 'coupon', Value is dynamic, but we check presence) with expect.poll
     let couponCookie: any = null;
@@ -52,7 +51,7 @@ export class LowToHighCouponFlow {
     // 2. Apply high discount coupon (get20)
     console.log('--- Applying 2nd Coupon: get20 ---');
     await page.goto('/?offer=get20', { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
     
     // Verify cookies with expect.poll: coupon should be get20, prev_coupon should be preview15
     let currentCoupon = '';
@@ -79,7 +78,7 @@ export class LowToHighCouponFlow {
     // 4. Apply low coupon again (preview15) - High should remain active
     console.log('--- Applying 1st Coupon again to verify no override ---');
     await page.goto('/?offer=preview15', { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
 
     // Expected: Banner should still show 20% (highest coupon not overridden)
     await expect(highBannerLocator).toBeVisible({ timeout: 10000 });
@@ -99,7 +98,7 @@ export class CouponBannerOnOtherPages {
     const validPath = '/vin-decoder';
 
     await page.goto(validPath, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
 
     console.log(`Passed: Navigated to valid path: ${validPath}`);
 

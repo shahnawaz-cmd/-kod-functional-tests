@@ -20,11 +20,13 @@ module.exports = defineConfig({
   retries: 3,
   workers: process.env.CI ? 2 : 2,
   fullyParallel: true,
+  outputDir: 'test-results',
   use: {
     baseURL: process.env.BASE_URL || 'https://toyotawindowsticker.com/',
     actionTimeout: 15000,
     navigationTimeout: 30000,
-    video: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'on',
     trace: 'retain-on-failure',
   },
   reporter: [

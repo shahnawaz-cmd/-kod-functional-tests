@@ -20,6 +20,21 @@ export const IP_POOL = {
   TAIWAN: '185.189.161.137',          // Taiwan (TW) - TWD (NT$)
 };
 
+export const IP_COUNTRY_MAP: Record<string, string> = {
+  '79.110.55.34': 'KR',
+  '162.251.62.82': 'US',
+  '172.99.190.215': 'GB',
+  '85.214.132.117': 'DE',
+  '192.206.151.131': 'CA',
+  '138.59.135.94': 'CR',
+  '45.250.252.51': 'CL',
+  '146.70.167.70': 'SA',
+  '180.149.231.71': 'NZ',
+  '190.97.167.149': 'PA',
+  '129.232.237.178': 'ZA',
+  '185.189.161.137': 'TW',
+};
+
 /**
  * Returns a random IP entry from the IP_POOL with its regional name.
  */
@@ -122,7 +137,7 @@ export class SessionIpStickinessTask {
   }
 
   /**
-   * Injects 'cwa_ip' into browser context for both host domain and root domain with httpOnly: true,
+   * Injects 'cwa_ip' and 'cwa_country' into browser context for both host domain and root domain,
    * matching Member area monitoring's CookieIpInjector behavior.
    */
   async setCwaIpCookie(context: BrowserContext, targetUrl: string, ipAddress: string) {
@@ -137,9 +152,11 @@ export class SessionIpStickinessTask {
     const parts = cleanHost.split('.');
     const rootDomain = parts.length > 2 ? `.${parts.slice(-2).join('.')}` : `.${cleanHost}`;
     const isSecure = targetUrl.startsWith('https:');
+    const country = IP_COUNTRY_MAP[ipAddress] || 'US';
 
-    // Clear any pre-existing cwa_ip cookies across all domains
+    // Clear any pre-existing cwa_ip and cwa_country cookies across all domains
     await context.clearCookies({ name: 'cwa_ip' }).catch(() => {});
+    await context.clearCookies({ name: 'cwa_country' }).catch(() => {});
 
     const cookies = [
       {
@@ -151,10 +168,16 @@ export class SessionIpStickinessTask {
         httpOnly: true,
         sameSite: 'Lax' as const,
       },
-    ];
-
-    if (rootDomain !== cleanHost && rootDomain !== `.${cleanHost}`) {
-      cookies.push({
+      {
+        name: 'cwa_country',
+        value: country,
+        domain: cleanHost,
+        path: '/',
+        secure: isSecure,
+        httpOnly: false,
+        sameSite: 'Lax' as const,
+      },
+      {
         name: 'cwa_ip',
         value: ipAddress,
         domain: rootDomain,
@@ -162,13 +185,22 @@ export class SessionIpStickinessTask {
         secure: isSecure,
         httpOnly: true,
         sameSite: 'Lax' as const,
-      });
-    }
+      },
+      {
+        name: 'cwa_country',
+        value: country,
+        domain: rootDomain,
+        path: '/',
+        secure: isSecure,
+        httpOnly: false,
+        sameSite: 'Lax' as const,
+      },
+    ];
 
     await context.addCookies(cookies);
 
     console.log('\n' + '─'.repeat(70));
-    console.log(`💉 [CWA IP INJECTOR] Injected 'cwa_ip': "${ipAddress}" (Host: ${cleanHost}, Root: ${rootDomain})`);
+    console.log(`💉 [CWA IP INJECTOR] Injected 'cwa_ip': "${ipAddress}", 'cwa_country': "${country}" (Host: ${cleanHost}, Root: ${rootDomain})`);
     console.log('─'.repeat(70) + '\n');
   }
 
@@ -187,17 +219,18 @@ export class SessionIpStickinessTask {
     for (let i = 1; i <= reloadCount; i++) {
       console.log(`   ⏳ Performing Reload #${i}...`);
       await page.reload({ waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(1000);
+
+      // Auto-retry checking cookie with expect.poll to prevent timing flakiness in CI
+      await expect.poll(async () => await this.getCwaIpValue(context), {
+        message: `[FAILURE] 'cwa_ip' changed on reload #${i}! Expected "${expectedIp}"`,
+        timeout: 10000,
+        intervals: [200, 500, 1000],
+      }).toBe(expectedIp);
 
       const currentIp = (await this.getCwaIpValue(context)) || '';
       const isMatched = currentIp === expectedIp;
 
       console.log(`   • [Reload #${i}] Current 'cwa_ip': "${currentIp}" | Expected: "${expectedIp}" ➡️ ${isMatched ? '✅ LOCKED' : '❌ CHANGED'}`);
-
-      expect(
-        currentIp,
-        `[FAILURE] 'cwa_ip' changed on reload #${i}! Expected "${expectedIp}", got "${currentIp}"`
-      ).toBe(expectedIp);
 
       results.push({
         reloadIndex: i,
@@ -224,18 +257,19 @@ export class SessionIpStickinessTask {
     // Open new tab in same browser context
     const tab2 = await context.newPage();
     await tab2.goto(targetUrl, { waitUntil: 'domcontentloaded' });
-    await tab2.waitForTimeout(1000);
+
+    // Auto-retry checking cookie with expect.poll in secondary tab
+    await expect.poll(async () => await this.getCwaIpValue(context), {
+      message: `[FAILURE] Tab 2 'cwa_ip' does not match session IP! Expected "${expectedIp}"`,
+      timeout: 10000,
+      intervals: [200, 500, 1000],
+    }).toBe(expectedIp);
 
     const tab2Ip = (await this.getCwaIpValue(context)) || '';
     const isMatched = tab2Ip === expectedIp;
 
     console.log(`   • [Tab 2 URL]    ${tab2.url()}`);
     console.log(`   • [Tab 2 cwa_ip] "${tab2Ip}" | Expected: "${expectedIp}" ➡️ ${isMatched ? '✅ SYNCED' : '❌ MISMATCH'}`);
-
-    expect(
-      tab2Ip,
-      `[FAILURE] Tab 2 'cwa_ip' does not match session IP! Expected "${expectedIp}", got "${tab2Ip}"`
-    ).toBe(expectedIp);
 
     console.log(`✅ [SESSION STICKINESS] Tab 2 successfully inherited locked session IP!`);
     console.log('═'.repeat(70) + '\n');
@@ -274,8 +308,7 @@ export class SessionIpStickinessTask {
       if (match) selectedRegion = match[0];
     }
 
-    // Allow initial background prefetch requests to settle without blocking on streaming connections (bounded to 2.5s)
-    await page.waitForLoadState('networkidle', { timeout: 2500 }).catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
 
     // 1. Initial Cookie Capture before injection
     await test.step('Step 1: Capture Pre-Injection Baseline Cookies', async () => {
@@ -289,6 +322,8 @@ export class SessionIpStickinessTask {
     // 2. Set & Inject target regional IP into cwa_ip
     await test.step(`Step 2: Inject Target Regional IP [${selectedRegion}] (${selectedIp}) into Session Cookie`, async () => {
       await this.setCwaIpCookie(context, page.url(), selectedIp!);
+      // Ensure page navigates with the newly injected session cookies active before reload checks
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
     });
 
     // 3. Perform Multiple Refreshes in Tab 1
@@ -369,9 +404,6 @@ export class SessionIpStickinessTask {
       }
 
       console.log(`📸 [SESSION STICKINESS] Preview screenshot captured and saved to: ${screenshotPath}`);
-
-      await page.close().catch(() => {});
-      console.log('🚪 [SESSION STICKINESS] Page closed successfully.');
     });
 
     return report;
