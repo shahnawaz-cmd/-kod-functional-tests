@@ -234,14 +234,16 @@ class ErrorPageToHomeCollectionTask {
     let capturedApiPayload = null;
     let capturedApiResponse = null;
 
+    const isPreviewApi = (url) => /vin-check\/(?:ws-)?preview/i.test(url);
+
     const apiResponsePromise = this.page.waitForResponse(
-      (res) => res.url().includes('vin-check/preview') && res.request().method() === 'POST',
+      (res) => isPreviewApi(res.url()) && res.request().method() === 'POST',
       { timeout: 20000 }
     ).catch(() => null);
 
     // Also attach request listener to ensure payload is reliably captured
     const requestListener = (req) => {
-      if (req.url().includes('vin-check/preview') && req.method() === 'POST') {
+      if (isPreviewApi(req.url()) && req.method() === 'POST') {
         try {
           capturedApiUrl = req.url();
           capturedApiPayload = req.postData();
