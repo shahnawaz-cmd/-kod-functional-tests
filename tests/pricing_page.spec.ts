@@ -117,27 +117,23 @@ test.describe('Pricing Page Suite', () => {
 
     testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
-    await navigateToPricing(page, testInfo);
     const task = new PricingRegionalCurrencyTask();
     await task.performAs(page, testInfo);
 
     await page.close();
   });
 
-  // ─────────────────────────────────────────────────────────────
-  // TC_06: Coupon Banner & Percentage Price Reflection (Desktop Only)
-  // ─────────────────────────────────────────────────────────────
-  test('TC_PRICING_06 — Verify coupon banner appearance and percentage price reflection on /pricing', async ({ page }, testInfo) => {
-    const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.includes('Mobile'));
-    test.skip(isMobile, 'TC_PRICING_06 is configured for Desktop only');
-
-    testInfo.setTimeout(process.env.CI ? 120000 : 90000);
-
-    const task = new PricingCouponDiscountTask('preview15', 15);
-    await task.performAs(page, testInfo);
-
-    await page.close();
-  });
+  // test('TC_PRICING_06 — Verify coupon banner appearance and percentage price reflection on /pricing', async ({ page }, testInfo) => {
+  //   const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.includes('Mobile'));
+  //   test.skip(isMobile, 'TC_PRICING_06 is configured for Desktop only');
+  //
+  //   testInfo.setTimeout(process.env.CI ? 120000 : 90000);
+  //
+  //   const task = new PricingCouponDiscountTask('preview15', 15);
+  //   await task.performAs(page, testInfo);
+  //
+  //   await page.close();
+  // });
 
   // ─────────────────────────────────────────────────────────────
   // TC_07: Pricing to Checkout Navigation

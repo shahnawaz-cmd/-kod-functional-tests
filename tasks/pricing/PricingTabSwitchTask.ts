@@ -5,14 +5,23 @@ export class PricingTabSwitchTask {
   async performAs(page: Page) {
     let dealerPlans: any[] = [];
 
-    await test.step('Step 1: Fetch Dealer Plans from Backend', async () => {
-      const response = await page.request.get('/api/pricing?sticker=1&dealer=1');
-      if (response.status() === 200) {
-        const data = await response.json();
-        const isWindowStickerSite = page.url().includes('windowsticker') || (page.context()?._options?.baseURL || '').includes('windowsticker');
-        dealerPlans = isWindowStickerSite && data.stickerDealer?.credit_plans?.length
-          ? data.stickerDealer.credit_plans
-          : (data.reportDealer?.credit_plans || []);
+    await test.step('Step 1: Fetch Dealer Plans from Backend with Edge Resilience', async () => {
+      // Allow up to 2 attempts with a 30s timeout to tolerate CI network latency
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await page.request.get('/api/pricing?sticker=1&dealer=1', { timeout: 30000 });
+          if (response && response.status() === 200) {
+            const data = await response.json();
+            const isWindowStickerSite = page.url().includes('windowsticker') || ((page.context() as any)?._options?.baseURL || '').includes('windowsticker');
+            dealerPlans = isWindowStickerSite && data.stickerDealer?.credit_plans?.length
+              ? data.stickerDealer.credit_plans
+              : (data.reportDealer?.credit_plans || []);
+            break;
+          }
+        } catch (error) {
+          console.warn(`⚠️ [/api/pricing] Attempt ${attempt} timed out or failed: ${error}`);
+          if (attempt === 1) await page.waitForTimeout(1000);
+        }
       }
     });
 
@@ -26,7 +35,6 @@ export class PricingTabSwitchTask {
 
       console.log('🔄 [Pricing] Clicking Business tab...');
       await businessBtn.click();
-      await page.waitForTimeout(500);
 
       // Verify at least one business/dealer plan renders
       if (dealerPlans.length > 0) {
@@ -38,6 +46,7 @@ export class PricingTabSwitchTask {
       }
 
       const ctaButtons = page.getByRole('button', { name: /Get.*(Report|Sticker)/i });
+      await expect(ctaButtons.first()).toBeVisible({ timeout: 10000 });
       expect(await ctaButtons.count()).toBeGreaterThan(0);
       console.log('✅ [Business Plan] Business plan cards displayed successfully.');
     });
@@ -47,9 +56,9 @@ export class PricingTabSwitchTask {
       if (await personalBtn.isVisible().catch(() => false)) {
         console.log('🔄 [Pricing] Clicking Personal tab...');
         await personalBtn.click();
-        await page.waitForTimeout(500);
 
         const ctaButtons = page.getByRole('button', { name: /Get.*(Report|Sticker)/i });
+        await expect(ctaButtons.first()).toBeVisible({ timeout: 10000 });
         expect(await ctaButtons.count()).toBeGreaterThan(0);
         console.log('✅ [Personal Plan] Personal plan cards successfully restored.');
       }

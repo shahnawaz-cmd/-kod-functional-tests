@@ -51,7 +51,8 @@ export class PricingRegionalCurrencyTask {
       console.log(`🎯 [GEO INJECTOR] Target Currency Code: "${expectedCurrency}"`);
       console.log('─'.repeat(70));
 
-      const domain = new URL(page.url()).hostname;
+      const targetURL = (testInfo?.project.use?.baseURL as string) || (page.url() !== 'about:blank' ? page.url() : 'https://windowsticker.com');
+      const domain = new URL(targetURL).hostname;
       const cleanHost = domain.replace(/^\./, '');
       const rootDomain = cleanHost.includes('.') ? `.${cleanHost.split('.').slice(-2).join('.')}` : `.${cleanHost}`;
 
@@ -73,7 +74,7 @@ export class PricingRegionalCurrencyTask {
     const pricingRoute = isDVH ? '/vin-check-rates' : '/pricing';
 
     await test.step(`Step 2: Reload Pricing Page (${pricingRoute}) with Regional Context`, async () => {
-      console.log(`🔄 [Pricing] Reloading ${pricingRoute} to activate regional session context...`);
+      console.log(`🔄 [Pricing] Navigating to ${pricingRoute} with regional session context...`);
       await page.goto(pricingRoute, { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
       await page.waitForTimeout(1000);
@@ -81,48 +82,62 @@ export class PricingRegionalCurrencyTask {
 
     await test.step(`Step 3: Validate Pricing Currency Matches Expected Code (${expectedCurrency})`, async () => {
       // 1. Backend validation via relative /api/pricing with session stabilization and edge retry
-      let response = await page.request.get('/api/pricing?sticker=1&dealer=1').catch(() => null);
-      
-      // If edge returns 502, 503 or network hiccup, retry up to 2 times with backoff
-      for (let attempt = 1; attempt <= 2 && (!response || response.status() !== 200); attempt++) {
-        console.warn(`⚠️ [/api/pricing] Attempt ${attempt} failed with status ${response?.status()}, retrying in 2s...`);
-        await page.waitForTimeout(2000);
-        response = await page.request.get('/api/pricing?sticker=1&dealer=1').catch(() => null);
-      }
+      let apiCurrencyCode = '';
+      let apiCurrencySign = '';
+      let firstPlan: any = null;
 
-      expect(response).not.toBeNull();
-      expect(response?.status()).toBe(200);
+      await expect.poll(async () => {
+        const response = await page.request.get('/api/pricing?sticker=1&dealer=1', {
+          headers: {
+            'cwa_country': country,
+            'cwa_ip': ip,
+            'X-Forwarded-For': ip
+          }
+        }).catch(() => null);
 
-      let data = await response?.json();
-      let firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
-      if (firstPlan && firstPlan.currency_code === 'USD' && expectedCurrency !== 'USD') {
-        // Wait and re-fetch once to allow server session to sync with injected geo cookies
-        await page.waitForTimeout(2000);
-        response = await page.request.get('/api/pricing?sticker=1&dealer=1');
-        data = await response.json();
+        if (!response || response.status() !== 200) return null;
+        const data = await response.json().catch(() => null);
         firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
-      }
-      expect(firstPlan).toBeDefined();
+        return firstPlan?.currency_code;
+      }, {
+        message: `[CURRENCY MISMATCH] Expected currency code "${expectedCurrency}", but API returned "${firstPlan?.currency_code}"`,
+        timeout: 10000,
+        intervals: [1000, 2000]
+      }).toBe(expectedCurrency);
 
-      const apiCurrencyCode = firstPlan.currency_code;
-      const apiCurrencySign = firstPlan.currency_sign;
+      apiCurrencyCode = firstPlan.currency_code;
+      apiCurrencySign = firstPlan.currency_sign;
 
       console.log(`📡 [API Response] Currency Code: "${apiCurrencyCode}" | Sign: "${apiCurrencySign}" | Price: ${firstPlan.price}`);
-      expect(
-        apiCurrencyCode,
-        `[CURRENCY MISMATCH] Expected currency code "${expectedCurrency}", but API returned "${apiCurrencyCode}"`
-      ).toBe(expectedCurrency);
 
-      // 2. UI validation: Check that price on UI contains the regional currency code/sign
-      const pageText = await page.evaluate(() => document.body.innerText);
-      const isCurrencyRenderedOnUI = pageText.includes(expectedCurrency) || pageText.includes(apiCurrencySign);
+      // 2. UI validation: Wait for client-side hydration to render regional currency code/sign
+      console.log(`⏳ [UI Render] Waiting for "${expectedCurrency}" or "${apiCurrencySign}" to render on pricing cards...`);
 
-      console.log(`🖥️ [UI Render] Regional Currency "${expectedCurrency}" / "${apiCurrencySign}" visible on page: ${isCurrencyRenderedOnUI ? '✅ YES' : '❌ NO'}`);
-      expect(
-        isCurrencyRenderedOnUI,
-        `[UI FAILURE] Neither currency code "${expectedCurrency}" nor sign "${apiCurrencySign}" appeared on the pricing cards!`
-      ).toBe(true);
+      try {
+        await expect.poll(async () => {
+          const pageText = await page.evaluate(() => document.body.innerText).catch(() => '');
+          return pageText.includes(expectedCurrency) || (Boolean(apiCurrencySign) && pageText.includes(apiCurrencySign));
+        }, {
+          timeout: 6000,
+          intervals: [300, 600, 1000]
+        }).toBe(true);
+      } catch {
+        // If client hydration was delayed or initial HTML was served from static cache, reload once with cookies active
+        console.warn(`⚠️ [UI Render] Currency not yet visible in DOM. Reloading to force rehydration...`);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
+        await expect.poll(async () => {
+          const pageText = await page.evaluate(() => document.body.innerText).catch(() => '');
+          return pageText.includes(expectedCurrency) || (Boolean(apiCurrencySign) && pageText.includes(apiCurrencySign));
+        }, {
+          message: `[UI FAILURE] Neither currency code "${expectedCurrency}" nor sign "${apiCurrencySign}" appeared on the pricing cards after rehydration!`,
+          timeout: 15000,
+          intervals: [500, 1000, 2000]
+        }).toBe(true);
+      }
+
+      console.log(`🖥️ [UI Render] Regional Currency "${expectedCurrency}" / "${apiCurrencySign}" visible on page: ✅ YES`);
       console.log(`✅ [SUCCESS] Pricing successfully localized to ${name} (${expectedCurrency})!`);
     });
 
