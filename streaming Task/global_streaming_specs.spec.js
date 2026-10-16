@@ -17,12 +17,13 @@ const { ErrorPageToHomeCollectionTask } = require('./tasks/ErrorPageToHomeCollec
 const { applyReferralAndVerifyCookies } = require('./tasks/ReferralTestTask');
 const { ExitIntentHelper } = require('../tasks/exit_intent_banner');
 const { ExitPopupBehaviour } = require('../tasks/exit_popup_behaviour');
+const { ClarityVerificationTask } = require('../tasks/ClarityVerificationTask');
 
 const TIMEOUT = process.env.CI ? 90000 : 60000;
 
 
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context, page }, testInfo) => {
   await context.clearCookies();
   await context.clearPermissions();
   const client = await context.newCDPSession(page).catch(() => null);
@@ -31,11 +32,13 @@ test.beforeEach(async ({ context, page }) => {
     await client.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
   }
 
-  // Block third-party trackers to prevent network hangs on streaming sites (especially VNCA)
-  await page.route(
-    /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i,
-    (route) => route.abort()
-  ).catch(() => {});
+  // Block third-party trackers to prevent network hangs on streaming sites (especially VNCA),
+  // but allow clarity.ms for clarity verification tests
+  const isClarityTest = testInfo.title.toLowerCase().includes('clarity');
+  const trackerPattern = isClarityTest
+    ? /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
+    : /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i;
+  await page.route(trackerPattern, (route) => route.abort()).catch(() => {});
 });
 
 test('TC_01_VIN_Decode_17_Character_Validation', async ({ page }) => {
@@ -563,6 +566,20 @@ test('TC_30_Exit_Popup_Behaviour_On_Sample_Links_Validation', async ({ page, con
   const exitPopupTask = new ExitPopupBehaviour();
   await exitPopupTask.performAs(page, context);
 });
+
+test('TC_31_Clarity_Three_Wrapper_Verification', async ({ page, context }, testInfo) => {
+  const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.toLowerCase().includes('mobile'));
+  test.skip(isMobile, 'Skipping clarity wrapper validation on mobile browsers');
+
+  const clarityTask = new ClarityVerificationTask(testInfo);
+  await clarityTask.execute({
+    page,
+    context,
+    testInfo,
+    isStreaming: true
+  });
+});
+
 
 
 

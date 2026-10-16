@@ -17,8 +17,9 @@ import { ClassicEditableSpecsManual } from '../tasks/classic_editable_specs_manu
 import { DefaultPlanPriceCheckTask } from '../tasks/default_plan_price_check';
 import { ClassicEditableSpecsUpdateOnly } from '../tasks/classic_editable_specs_update_only';
 import { ExitPopupBehaviour } from '../tasks/exit_popup_behaviour';
+import { ClarityVerificationTask } from '../tasks/ClarityVerificationTask';
 
-test.beforeEach(async ({ context, page }) => {
+test.beforeEach(async ({ context, page }, testInfo) => {
   await context.clearCookies();
   await context.clearPermissions();
   const client = await context.newCDPSession(page).catch(() => null);
@@ -28,10 +29,11 @@ test.beforeEach(async ({ context, page }) => {
   }
 
   if (process.env.CI) {
-    await page.route(
-      /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i,
-      (route) => route.abort()
-    ).catch(() => {});
+    const isClarityTest = testInfo.title.toLowerCase().includes('clarity');
+    const trackerPattern = isClarityTest
+      ? /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
+      : /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i;
+    await page.route(trackerPattern, (route) => route.abort()).catch(() => {});
   }
 });
 
@@ -240,5 +242,19 @@ test('TC_17 Classic editable specs update only from preview validation', async (
 //     console.log('TC_18: page.close() executed.');
 //   }
 // });
+
+test('TC_19 Microsoft Clarity three wrapper verification (Homepage -> Preview -> Checkout)', async ({ page, context }, testInfo) => {
+  const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.toLowerCase().includes('mobile'));
+  test.skip(isMobile, 'Skipping Clarity verification on mobile emulators (runs on desktop browsers)');
+
+  const clarityTask = new ClarityVerificationTask(testInfo);
+  await clarityTask.execute({
+    page,
+    context,
+    testInfo,
+    isStreaming: false
+  });
+});
+
 
 
