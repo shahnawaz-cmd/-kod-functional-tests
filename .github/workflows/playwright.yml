@@ -8,13 +8,6 @@ permissions:
   id-token: write
 
 on:
-  push:
-    branches:
-      - main
-      - master
-    paths-ignore:
-      - '**.md'
-      - '.gitignore'
   schedule:
     # Run daily at 00:00 UTC
     - cron: '0 0 * * *'
@@ -180,8 +173,8 @@ jobs:
           path: test-results/
           retention-days: 7
 
-      - name: Send Instant Slack Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
-        if: always()
+      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
+        if: steps.playwright-run.outcome == 'failure'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_SERVER: ${{ github.server_url }}
@@ -197,7 +190,7 @@ jobs:
           SUITE_TYPE: 'Checkout Funnel'
           RUN_STATUS: ${{ steps.playwright-run.outcome }}
         run: |
-          node scripts/slack-notify.js --site-mode
+          node scripts/slack-notify.js --site-mode --failures-only
 
   # ─────────────────────────────────────────────────────────────
   # STEP 2B: RUN STANDALONE AUDITS PER SITE (SEPARATE RUNNER)
@@ -290,8 +283,8 @@ jobs:
           path: test-results/
           retention-days: 7
 
-      - name: Send Instant Slack Alert for ${{ matrix.site.name }} Audits (${{ matrix.browser }})
-        if: always()
+      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Audits (${{ matrix.browser }})
+        if: steps.standalone-run.outcome == 'failure'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_SERVER: ${{ github.server_url }}
@@ -307,7 +300,7 @@ jobs:
           SUITE_TYPE: 'Standalone Audits'
           RUN_STATUS: ${{ steps.standalone-run.outcome }}
         run: |
-          node scripts/slack-notify.js --site-mode
+          node scripts/slack-notify.js --site-mode --failures-only
 
   # ─────────────────────────────────────────────────────────────
   # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
@@ -371,6 +364,7 @@ jobs:
           GITHUB_REF: ${{ github.ref_name }}
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
+          SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
         run: |
           node scripts/slack-notify.js
 

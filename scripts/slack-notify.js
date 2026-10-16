@@ -76,6 +76,16 @@ const effectivePassed = (stats.expected || 0) + (stats.flaky || 0);
 const failedTests = stats.unexpected || 0;
 const totalTests = effectivePassed + failedTests;
 
+// Count active sites from sites.json
+let siteCount = 14;
+try {
+  const sitesPath = path.resolve(process.cwd(), 'sites.json');
+  if (fs.existsSync(sitesPath)) {
+    const sites = JSON.parse(fs.readFileSync(sitesPath, 'utf8'));
+    siteCount = sites.length;
+  }
+} catch (e) {}
+
 const isSiteMode = process.argv.includes('--site-mode') || Boolean(process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT);
 const currentSiteName = process.env.SITE_NAME || process.env.PLAYWRIGHT_PROJECT || '';
 const currentSiteUrl = process.env.SITE_URL || process.env.BASE_URL || '';
@@ -86,23 +96,26 @@ const runOutcome = process.env.RUN_STATUS || (failedTests === 0 && totalTests > 
 const isPassing = (runOutcome === 'success' || (failedTests === 0 && totalTests > 0)) && runOutcome !== 'failure';
 const statusColor = isPassing ? '#2eb886' : '#e01e5a';
 
+const failuresOnly = process.argv.includes('--failures-only');
+if (failuresOnly && isPassing) {
+  console.log(`✅ [Slack Notify] ${currentSiteName || 'Site'} (${browserName}) passed. Suppressing Slack alert to keep channel clean.`);
+  process.exit(0);
+}
+
+const siteFilter = process.env.SITE_FILTER || 'all';
+const isFilteredSingleSite = siteFilter && siteFilter !== 'all';
+
 const titleText = isSiteMode
   ? (isPassing
       ? `✅ [${currentSiteName}] ${suiteType} (${browserName}) — Passed`
-      : `🚨 [${currentSiteName}] ${suiteType} (${browserName}) — ${failedTests > 0 ? `${failedTests} Failed` : 'Failed'}`)
-  : (isPassing
-      ? `✅ KOD Window Sticker Suite — All Passed`
-      : `🚨 KOD Window Sticker Suite — ${failedTests} Failed`);
-
-// Count active sites from sites.json
-let siteCount = 5;
-try {
-  const sitesPath = path.resolve(process.cwd(), 'sites.json');
-  if (fs.existsSync(sitesPath)) {
-    const sites = JSON.parse(fs.readFileSync(sitesPath, 'utf8'));
-    siteCount = sites.length;
-  }
-} catch (e) {}
+      : `🚨 [${currentSiteName}] Critical Failure • ${suiteType} (${browserName})`)
+  : (isFilteredSingleSite
+      ? (isPassing
+          ? `✅ [${siteFilter.toUpperCase()}] Verification Suite — All Passed`
+          : `🚨 [${siteFilter.toUpperCase()}] Verification Suite — ${failedTests} Failure(s) Detected`)
+      : (isPassing
+          ? `✅ KOD Window Sticker Suite — All ${siteCount} Domains Passed`
+          : `🚨 KOD Window Sticker Suite — ${failedTests} Failure(s) Detected`));
 
 const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
 
@@ -110,20 +123,22 @@ const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' 
 const [owner, repoName] = githubRepo.split('/');
 const pagesUrl = owner && repoName ? `https://${owner}.github.io/${repoName}` : '';
 
+const projectName = browserName === 'Desktop' ? currentSiteName : `${currentSiteName}_${browserName}`;
+
 const sectionText = isSiteMode
   ? [
-      `*Website:* <${currentSiteUrl || `https://${currentSiteName.toLowerCase()}.com`}|${currentSiteName}>`,
+      `*Target Domain:* <${currentSiteUrl || `https://${currentSiteName.toLowerCase()}.com`}|${currentSiteName}>`,
       `*Scope:* 🎯 *${suiteType}*  •  📱 *${browserName}*`,
-      `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests > 0 ? `${failedTests} Test(s) Failing` : 'Run Failed'}*`}`,
+      `*Status:* 🔴 *${failedTests > 0 ? `${failedTests} Test(s) Failed` : 'Runner Execution Failed'}*`,
       totalTests > 0
         ? `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`
-        : `*Outcome:* ${isPassing ? '✅ Success' : '❌ Failure'}`,
+        : `*Outcome:* ❌ Run encountered critical errors`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n')
   : [
-      `*Status:* ${isPassing ? '🟢 All Tests Passing' : `🔴 *${failedTests} Failing*`}`,
-      `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*`,
-      `*Target Scope:* 🚗 *${siteCount} Domains* (Desktop & Mobile)`,
+      `*Overall Status:* ${isPassing ? `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : 'All 14 Domains Passing'}` : `🔴 *${failedTests} Failure(s) Detected*`}`,
+      `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`,
+      `*Target Scope:* 🚗 *${isFilteredSingleSite ? `Single Domain Dispatch: ${siteFilter}` : `${siteCount} Live Brands Tested`}* (Desktop & Mobile Chrome)`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n');
 
@@ -156,7 +171,7 @@ if (failedSpecs.length > 0) {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `*🚨 Top Failures:*\n${failureList}${overflow}`
+      text: `*🚨 Failing Tests & Root Causes:*\n${failureList}${overflow}`
     }
   });
   blocks.push({
@@ -167,38 +182,77 @@ if (failedSpecs.length > 0) {
 // Add Action Buttons
 const actionElements = [];
 
-if (pagesUrl) {
-  actionElements.push({
-    type: 'button',
-    text: {
-      type: 'plain_text',
-      text: '📊 Allure Report',
-      emoji: true
-    },
-    url: pagesUrl,
-    style: 'primary'
-  });
+if (isSiteMode) {
+  // Site-specific failure buttons
+  if (pagesUrl) {
+    actionElements.push({
+      type: 'button',
+      text: {
+        type: 'plain_text',
+        text: '🎭 View Site Failure in HTML',
+        emoji: true
+      },
+      url: `${pagesUrl}/playwright/#?project=${encodeURIComponent(projectName)}`,
+      style: 'danger'
+    });
+  }
 
   actionElements.push({
     type: 'button',
     text: {
       type: 'plain_text',
-      text: '🎭 Playwright HTML',
+      text: '⚙️ Inspect Runner Logs & Videos',
       emoji: true
     },
-    url: `${pagesUrl}/playwright/`
+    url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
+  });
+
+  if (currentSiteUrl) {
+    actionElements.push({
+      type: 'button',
+      text: {
+        type: 'plain_text',
+        text: '🌐 Live Site',
+        emoji: true
+      },
+      url: currentSiteUrl
+    });
+  }
+} else {
+  // Consolidated suite buttons
+  if (pagesUrl) {
+    actionElements.push({
+      type: 'button',
+      text: {
+        type: 'plain_text',
+        text: '📊 Allure Executive Report',
+        emoji: true
+      },
+      url: pagesUrl,
+      style: 'primary'
+    });
+
+    actionElements.push({
+      type: 'button',
+      text: {
+        type: 'plain_text',
+        text: '🎭 Playwright HTML Suite',
+        emoji: true
+      },
+      url: `${pagesUrl}/playwright/`
+    });
+  }
+
+  actionElements.push({
+    type: 'button',
+    text: {
+      type: 'plain_text',
+      text: '⚙️ GitHub Action Run',
+      emoji: true
+    },
+    url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
   });
 }
-
-actionElements.push({
-  type: 'button',
-  text: {
-    type: 'plain_text',
-    text: '⚙️ GitHub Action Run',
-    emoji: true
-  },
-  url: `${githubServer}/${githubRepo}/actions/runs/${githubRun}`
-});
 
 blocks.push({
   type: 'actions',
