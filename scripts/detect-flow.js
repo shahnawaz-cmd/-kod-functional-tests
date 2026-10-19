@@ -16,9 +16,24 @@ try {
 
 async function detectSingleDomain(name, url) {
   console.log(`\n🔍 [Flow Detection] Checking ${name} (${url})...`);
+  const fs = require('fs');
+  const path = require('path');
+  let dnsRules = '';
+  try {
+    const rulesFile = path.resolve(__dirname, '..', 'dns-rules.json');
+    if (fs.existsSync(rulesFile)) {
+      dnsRules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules || '';
+    }
+  } catch (e) {}
+
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--dns-result-order=ipv4first',
+      ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
+    ]
   });
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();

@@ -34,6 +34,9 @@ on:
           - alfaromeo
           - ford
           - chevrolet
+          - bmw
+          - jeep
+          - hyundai
 
 env:
   UV_THREADPOOL_SIZE: 64

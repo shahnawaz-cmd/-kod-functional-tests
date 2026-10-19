@@ -82,5 +82,23 @@
     "brand": "chevrolet",
     "name": "ChevroletWindowSticker",
     "url": "https://chevroletwindowsticker.com"
+  },
+  {
+    "id": "bmw",
+    "brand": "bmw",
+    "name": "BmwWindowSticker",
+    "url": "https://bmwwindowsticker.com"
+  },
+  {
+    "id": "jeep",
+    "brand": "jeep",
+    "name": "JeepWindowSticker",
+    "url": "https://jeepwindowsticker.com"
+  },
+  {
+    "id": "hyundai",
+    "brand": "hyundai",
+    "name": "HyundaiWindowSticker",
+    "url": "https://hyundaiwindowsticker.com"
   }
 ]
