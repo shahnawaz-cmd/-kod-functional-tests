@@ -70,9 +70,9 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 10
       matrix:
-        shard: ['1/4', '2/4', '3/4', '4/4']
+        shard: ['1/10', '2/10', '3/10', '4/10', '5/10', '6/10', '7/10', '8/10', '9/10', '10/10']
 
     steps:
       - name: Checkout Code
@@ -170,7 +170,7 @@ jobs:
             if (filter && filter !== 'all') {
               console.log(JSON.stringify(['single']));
             } else {
-              console.log(JSON.stringify(['1/4', '2/4', '3/4', '4/4']));
+              console.log(JSON.stringify(['1/10', '2/10', '3/10', '4/10', '5/10', '6/10', '7/10', '8/10', '9/10', '10/10']));
             }
           ")
           echo "shards=${SHARDS_JSON}" >> $GITHUB_OUTPUT
@@ -187,7 +187,7 @@ jobs:
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 4
+      max-parallel: 10
       matrix:
         shard: ${{ fromJson(needs.funnel-detect.outputs.shards) }}
 
