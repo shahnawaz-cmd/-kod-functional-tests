@@ -21,6 +21,11 @@ async function detectSingleDomain(name, url) {
   let dnsRules = '';
   try {
     const rulesFile = path.resolve(__dirname, '..', 'dns-rules.json');
+    if (!fs.existsSync(rulesFile)) {
+      try {
+        await require('../global-setup.js')();
+      } catch (e) {}
+    }
     if (fs.existsSync(rulesFile)) {
       dnsRules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules || '';
     }

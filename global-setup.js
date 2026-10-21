@@ -17,6 +17,9 @@ async function globalSetup() {
     }
   });
 
+  // DataFast auxiliary domains (commented out for now):
+  // const auxHosts = ['detailedvehiclehistory.com', 'instantvinreports.com', 'premiumvin.com', 'classicdecoder.com'];
+  // const uniqueHosts = Array.from(new Set([...hosts, ...auxHosts]));
   const uniqueHosts = Array.from(new Set(hosts));
 
   const results = await Promise.allSettled(

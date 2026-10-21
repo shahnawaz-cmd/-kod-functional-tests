@@ -37,6 +37,13 @@ on:
           - bmw
           - jeep
           - hyundai
+          - mclaren
+          - ram
+          - chrysler
+          - buick
+          - mitsubishi
+          - lincoln
+          - volvo
 
 env:
   UV_THREADPOOL_SIZE: 64

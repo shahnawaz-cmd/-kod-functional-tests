@@ -100,5 +100,47 @@
     "brand": "hyundai",
     "name": "HyundaiWindowSticker",
     "url": "https://hyundaiwindowsticker.com"
+  },
+  {
+    "id": "mclaren",
+    "brand": "mclaren",
+    "name": "MclarenWindowSticker",
+    "url": "https://mclarenwindowsticker.com"
+  },
+  {
+    "id": "ram",
+    "brand": "ram",
+    "name": "RamWindowSticker",
+    "url": "https://ramwindowsticker.com"
+  },
+  {
+    "id": "chrysler",
+    "brand": "chrysler",
+    "name": "ChryslerWindowSticker",
+    "url": "https://chryslerwindowsticker.com"
+  },
+  {
+    "id": "buick",
+    "brand": "buick",
+    "name": "BuickWindowSticker",
+    "url": "https://buickwindowsticker.com"
+  },
+  {
+    "id": "mitsubishi",
+    "brand": "mitsubishi",
+    "name": "MitsubishiWindowSticker",
+    "url": "https://mitsubishiwindowsticker.com"
+  },
+  {
+    "id": "lincoln",
+    "brand": "lincoln",
+    "name": "LincolnWindowSticker",
+    "url": "https://lincolnwindowsticker.com"
+  },
+  {
+    "id": "volvo",
+    "brand": "volvo",
+    "name": "VolvoWindowSticker",
+    "url": "https://volvowindowsticker.com"
   }
 ]
