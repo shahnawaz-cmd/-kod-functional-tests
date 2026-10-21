@@ -136,7 +136,7 @@ const sectionText = isSiteMode
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n')
   : [
-      `*Overall Status:* ${isPassing ? `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : 'All 14 Domains Passing'}` : `🔴 *${failedTests} Failure(s) Detected*`}`,
+      `*Overall Status:* ${isPassing ? `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : `All ${siteCount} Domains Passing (Funnel & Audits)`}` : `🔴 *${failedTests} Failure(s) Detected*`}`,
       `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`,
       `*Target Scope:* 🚗 *${isFilteredSingleSite ? `Single Domain Dispatch: ${siteFilter}` : `${siteCount} Live Brands Tested`}* (Desktop & Mobile Chrome)`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``

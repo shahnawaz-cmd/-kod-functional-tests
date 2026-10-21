@@ -17,7 +17,7 @@ module.exports = defineConfig({
   expect: {
     timeout: 10000,
   },
-  retries: 3,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : 2,
   fullyParallel: true,
   outputDir: 'test-results',
@@ -26,8 +26,8 @@ module.exports = defineConfig({
     actionTimeout: 15000,
     navigationTimeout: 30000,
     screenshot: 'only-on-failure',
-    video: 'on',
-    trace: 'retain-on-failure',
+    video: 'retain-on-failure',
+    trace: 'on-first-retry',
   },
   reporter: [
     ['line'],
@@ -67,10 +67,23 @@ module.exports = defineConfig({
           ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
         ];
 
+        let flowDetectionMap = {};
+        try {
+          const flowFile = path.resolve(__dirname, 'flow-detection.json');
+          if (fs.existsSync(flowFile)) {
+            flowDetectionMap = JSON.parse(fs.readFileSync(flowFile, 'utf-8'));
+          }
+        } catch (e) {}
+
         const siteProjects = [];
         for (const site of sites) {
+          const flowType = flowDetectionMap[site.name] || site.flow || 'streaming';
+          const funnelSpec = flowType === 'non_streaming' ? '**/tests/global_case_verification.spec.ts' : '**/streaming Task/global_streaming_specs.spec.js';
+          const projectTestMatch = [funnelSpec, '**/tests/pricing_page.spec.ts', '**/tests/session_ip_stickiness.spec.ts', '**/tests/ui_ux_verification.spec.ts'];
+
           siteProjects.push({
             name: site.name,
+            testMatch: projectTestMatch,
             use: {
               ...devices['Desktop Chrome'],
               baseURL: site.url.endsWith('/') ? site.url : `${site.url}/`,
@@ -83,6 +96,7 @@ module.exports = defineConfig({
           });
           siteProjects.push({
             name: `${site.name}_MobileChrome`,
+            testMatch: projectTestMatch,
             use: {
               ...devices['Pixel 5'],
               baseURL: site.url.endsWith('/') ? site.url : `${site.url}/`,

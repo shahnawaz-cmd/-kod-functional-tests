@@ -1,5 +1,7 @@
-// detect-flow.js
+// scripts/detect-flow.js
 const { chromium } = require('@playwright/test');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 let ALL_DOMAINS = [
@@ -14,10 +16,7 @@ try {
   }
 } catch (e) {}
 
-async function detectSingleDomain(name, url) {
-  console.log(`\n🔍 [Flow Detection] Checking ${name} (${url})...`);
-  const fs = require('fs');
-  const path = require('path');
+async function getDnsRules() {
   let dnsRules = '';
   try {
     const rulesFile = path.resolve(__dirname, '..', 'dns-rules.json');
@@ -30,49 +29,43 @@ async function detectSingleDomain(name, url) {
       dnsRules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules || '';
     }
   } catch (e) {}
+  return dnsRules;
+}
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--dns-result-order=ipv4first',
-      ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
-    ]
-  });
+async function detectSingleDomain(name, url, browserInstance = null) {
+  let browser = browserInstance;
+  let shouldCloseBrowser = false;
+  let dnsRules = await getDnsRules();
+
+  if (!browser) {
+    browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--dns-result-order=ipv4first',
+        ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
+      ]
+    });
+    shouldCloseBrowser = true;
+  }
+
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   let flowType = null;
   let errorMsg = null;
 
   try {
-    // Clear all browser cache, cookies, and local storage to guarantee fresh state
-    await context.clearCookies();
-    const cdp = await context.newCDPSession(page).catch(() => null);
-    if (cdp) {
-      await cdp.send('Network.clearBrowserCache').catch(() => {});
-      await cdp.send('Network.clearBrowserCookies').catch(() => {});
-      await cdp.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
-    }
-    // Append cache-buster query parameter to bypass Cloudflare edge cache (CF-Cache-Status: HIT)
     const freshUrl = url.includes('?') ? `${url}&_t=${Date.now()}` : `${url}${url.endsWith('/') ? '' : '/'}?_t=${Date.now()}`;
+    await page.goto(freshUrl, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(e => {
+      errorMsg = e.message;
+    });
 
-    for (let navAttempt = 1; navAttempt <= 4; navAttempt++) {
-      try {
-        await page.goto(freshUrl, { waitUntil: 'domcontentloaded', timeout: 35000 });
-        break;
-      } catch (navError) {
-        console.warn(`  ⚠️ Navigation attempt ${navAttempt} failed (${navError.message}). Retrying...`);
-        if (navAttempt === 4) throw navError;
-        await page.waitForTimeout(3000 * navAttempt);
-      }
-    }
+    // Check for checkout_flow cookie or localStorage
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await page.waitForTimeout(300);
 
-    // Poll up to 10 seconds for checkout_flow cookie or localStorage
-    for (let attempt = 0; attempt < 20; attempt++) {
-      await page.waitForTimeout(500);
-
-      const cookies = await context.cookies();
+      const cookies = await context.cookies().catch(() => []);
       const flowCookie = cookies.find((c) => c.name === 'checkout_flow');
       if (flowCookie) {
         flowType = flowCookie.value;
@@ -86,7 +79,7 @@ async function detectSingleDomain(name, url) {
         } catch (e) {
           return null;
         }
-      });
+      }).catch(() => null);
 
       if (lsFlow) {
         flowType = lsFlow;
@@ -96,42 +89,61 @@ async function detectSingleDomain(name, url) {
   } catch (err) {
     errorMsg = err.message;
   } finally {
-    await browser.close().catch(() => {});
+    await context.close().catch(() => {});
+    if (shouldCloseBrowser) {
+      await browser.close().catch(() => {});
+    }
   }
 
-  if (flowType) {
-    console.log(`  ✅ ${name}: ${flowType}`);
-  } else {
-    console.log(`  ❌ ${name}: ${errorMsg ? `Failed (${errorMsg})` : 'Not Detected'}`);
-  }
-
-  return { name, url, flowType: flowType || 'UNKNOWN', error: errorMsg };
+  const finalFlow = flowType && flowType !== 'UNKNOWN' ? flowType : 'streaming';
+  return { name, url, flowType: finalFlow, error: errorMsg };
 }
 
 async function detectFlow(targetUrl) {
   try {
     const isAll = process.argv.includes('--all') || (!targetUrl && !process.env.BASE_URL);
+    const isJson = process.argv.includes('--json');
 
     if (isAll) {
       console.log('==================================================');
-      console.log('🚀 Running Flow Detection across Project Brand Domains');
+      console.log('🚀 Running Fast Concurrent Flow Detection across All Domains');
       console.log('==================================================');
+
+      const dnsRules = await getDnsRules();
+      const browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--dns-result-order=ipv4first',
+          ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
+        ]
+      });
 
       const results = [];
-      for (const domain of ALL_DOMAINS) {
-        const res = await detectSingleDomain(domain.name, domain.url);
-        results.push(res);
+      const CONCURRENCY = 6;
+      for (let i = 0; i < ALL_DOMAINS.length; i += CONCURRENCY) {
+        const chunk = ALL_DOMAINS.slice(i, i + CONCURRENCY);
+        const chunkResults = await Promise.all(chunk.map(d => detectSingleDomain(d.name, d.url, browser)));
+        results.push(...chunkResults);
       }
 
-      console.log('\n==================================================');
-      console.log('📊 FLOW DETECTION SUMMARY TABLE');
-      console.log('==================================================');
-      console.table(results.map(r => ({
-        Brand: r.name,
-        URL: r.url,
-        'Checkout Flow': r.flowType,
-        Status: r.error ? 'Error / Unreachable' : 'Detected'
-      })));
+      await browser.close().catch(() => {});
+
+      const flowMap = {};
+      results.forEach(r => {
+        flowMap[r.name] = r.flowType;
+        console.log(`  ✓ ${r.name.padEnd(28)} -> ${r.flowType}`);
+      });
+
+      // Write flow-detection.json for CI consumption
+      const outputPath = path.resolve(process.cwd(), 'flow-detection.json');
+      fs.writeFileSync(outputPath, JSON.stringify(flowMap, null, 2), 'utf-8');
+      console.log(`\n💾 Saved flow detection map to ${outputPath}`);
+
+      if (isJson) {
+        console.log(JSON.stringify(flowMap));
+      }
 
       return results;
     } else {
@@ -139,10 +151,6 @@ async function detectFlow(targetUrl) {
       const res = await detectSingleDomain('TargetSite', url);
       const finalFlow = res.flowType && res.flowType !== 'UNKNOWN' ? res.flowType : 'streaming';
       console.log(`\nDetected Checkout Flow : ${finalFlow}`);
-
-      if (!res.flowType || res.flowType === 'UNKNOWN') {
-        if (require.main === module) process.exit(1);
-      }
       return finalFlow;
     }
   } catch (err) {

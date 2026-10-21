@@ -15,3 +15,4 @@ gh-deploy/
 results.json
 temp-blobs/
 dns-rules.json
+flow-detection.json
