@@ -202,6 +202,7 @@ jobs:
           npx playwright merge-reports --config=merge.config.js ./all-blobs
         env:
           CI: true
+          PLAYWRIGHT_REPORT_DIR: playwright-report-pricing
 
       - name: Download all Allure Results
         uses: actions/download-artifact@v4
@@ -227,6 +228,8 @@ jobs:
           GITHUB_EVENT: ${{ github.event_name }}
           SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
           SUITE_TYPE: 'Pricing Suite'
+          PLAYWRIGHT_REPORT_DIR: playwright-report-pricing
+          REPORT_SUBPATH: 'pricing'
         run: |
           node scripts/slack-notify.js
 
@@ -234,7 +237,7 @@ jobs:
         if: always()
         run: |
           mkdir -p gh-deploy/pricing/playwright
-          cp -r playwright-report/* gh-deploy/pricing/playwright/ 2>/dev/null || true
+          cp -r playwright-report-pricing/* gh-deploy/pricing/playwright/ 2>/dev/null || true
           rm -f gh-deploy/pricing/playwright/results.json
           if [ -d "allure-report-out" ]; then
             cp -r allure-report-out/* gh-deploy/pricing/
@@ -247,7 +250,7 @@ jobs:
         if: always()
         with:
           name: playwright-report-pricing
-          path: playwright-report/
+          path: playwright-report-pricing/
           retention-days: 30
 
       - name: Upload Final Consolidated Allure Report

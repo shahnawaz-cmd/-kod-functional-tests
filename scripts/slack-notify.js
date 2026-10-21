@@ -14,11 +14,14 @@ const githubSha = (process.env.GITHUB_SHA_VAL || '').substring(0, 7) || 'HEAD';
 const githubEvent = process.env.GITHUB_EVENT || 'workflow_dispatch';
 
 // 1. Locate results file
+const reportDir = process.env.PLAYWRIGHT_REPORT_DIR || 'playwright-report';
 let resultsPath = process.env.TEST_RESULTS_FILE
   ? path.resolve(process.cwd(), process.env.TEST_RESULTS_FILE)
-  : (fs.existsSync(path.resolve(process.cwd(), 'playwright-report', 'results.json'))
-      ? path.resolve(process.cwd(), 'playwright-report', 'results.json')
-      : path.resolve(process.cwd(), 'results.json'));
+  : (fs.existsSync(path.resolve(process.cwd(), reportDir, 'results.json'))
+      ? path.resolve(process.cwd(), reportDir, 'results.json')
+      : (fs.existsSync(path.resolve(process.cwd(), 'playwright-report', 'results.json'))
+          ? path.resolve(process.cwd(), 'playwright-report', 'results.json')
+          : path.resolve(process.cwd(), 'results.json')));
 
 let stats = { expected: 0, unexpected: 0, flaky: 0, skipped: 0 };
 let failedSpecs = [];
@@ -121,7 +124,9 @@ const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' 
 
 // GitHub Pages URL (derived from owner/repo)
 const [owner, repoName] = githubRepo.split('/');
-const pagesUrl = owner && repoName ? `https://${owner}.github.io/${repoName}` : '';
+const basePagesUrl = owner && repoName ? `https://${owner}.github.io/${repoName}` : '';
+const reportSubpath = process.env.REPORT_SUBPATH ? `${process.env.REPORT_SUBPATH}/` : '';
+const pagesUrl = basePagesUrl ? (reportSubpath ? `${basePagesUrl}/${reportSubpath}` : basePagesUrl) : '';
 
 const projectName = browserName === 'Desktop' ? currentSiteName : `${currentSiteName}_${browserName}`;
 

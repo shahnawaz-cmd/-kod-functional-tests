@@ -2,11 +2,11 @@
 import { test } from '@playwright/test';
 import { SessionIpStickinessTask, IP_POOL } from '../tasks/SessionIpStickinessTask';
 
-test.describe('Session IP Stickiness & Persistence Suite', () => {
+test.describe('IP Lock & Currency Conversion Suite', () => {
   // Use clean isolated session state
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('TC_IP_01 — Verify CWA IP stickiness, multi-tab persistence, and reload integrity', async ({ page }, testInfo) => {
+  test('TC_IP_01 — Verify CWA IP Lock, Currency Conversion, Multi-Tab Persistence, and Reload Integrity', async ({ page }, testInfo) => {
     // Only run in Desktop Chrome; skip on mobile or non-chromium browsers
     const isMobile = Boolean(
       testInfo.project.use?.isMobile ||

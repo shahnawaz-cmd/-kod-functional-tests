@@ -1,4 +1,4 @@
-name: Window Sticker - Session Stickiness E2E Suite
+name: Window Sticker - IP Lock & Currency Conversion E2E Suite
 
 permissions:
   contents: write
@@ -69,7 +69,7 @@ jobs:
   # STEP 1: RUN SESSION STICKINESS AUDITS (6 HIGH-SPEED SHARDS)
   # ─────────────────────────────────────────────────────────────
   stickiness-shards:
-    name: 🔒 Session Shard (${{ matrix.shard }})
+    name: 🔒 IP Lock & Currency Shard (${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
     continue-on-error: true
@@ -202,6 +202,7 @@ jobs:
           npx playwright merge-reports --config=merge.config.js ./all-blobs
         env:
           CI: true
+          PLAYWRIGHT_REPORT_DIR: playwright-report-ip-lock
 
       - name: Download all Allure Results
         uses: actions/download-artifact@v4
@@ -226,18 +227,20 @@ jobs:
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
           SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
-          SUITE_TYPE: 'Session Stickiness Suite'
+          SUITE_TYPE: 'IP Lock & Currency Conversion Suite'
+          PLAYWRIGHT_REPORT_DIR: playwright-report-ip-lock
+          REPORT_SUBPATH: 'ip-lock'
         run: |
           node scripts/slack-notify.js
 
       - name: Prepare Combined GitHub Pages Deployment Directory
         if: always()
         run: |
-          mkdir -p gh-deploy/stickiness/playwright
-          cp -r playwright-report/* gh-deploy/stickiness/playwright/ 2>/dev/null || true
-          rm -f gh-deploy/stickiness/playwright/results.json
+          mkdir -p gh-deploy/ip-lock/playwright
+          cp -r playwright-report-ip-lock/* gh-deploy/ip-lock/playwright/ 2>/dev/null || true
+          rm -f gh-deploy/ip-lock/playwright/results.json
           if [ -d "allure-report-out" ]; then
-            cp -r allure-report-out/* gh-deploy/stickiness/
+            cp -r allure-report-out/* gh-deploy/ip-lock/
           fi
           find gh-deploy -type f -name '*.zip' -size +10M -delete
           find gh-deploy -type f -size +20M -delete
@@ -246,15 +249,15 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-stickiness
-          path: playwright-report/
+          name: playwright-report-ip-lock
+          path: playwright-report-ip-lock/
           retention-days: 30
 
       - name: Upload Final Consolidated Allure Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-report-stickiness
+          name: allure-report-ip-lock
           path: allure-report-out/
           retention-days: 30
 

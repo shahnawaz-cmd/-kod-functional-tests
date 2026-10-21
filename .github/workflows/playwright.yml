@@ -25,7 +25,8 @@ on:
         options:
           - 'both'
           - 'pricing'
-          - 'session'
+          - 'ip_lock'
+          - 'ui_ux'
           - 'funnel'
       site_filter:
         description: 'Select website to run (or "all" for all websites)'
@@ -233,7 +234,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   test-standalone:
     name: 🔍 Audits • ${{ matrix.site.name }} (${{ matrix.browser }})
-    if: github.event.inputs.suite == 'both' || github.event.inputs.suite == 'pricing' || github.event.inputs.suite == 'session' || !github.event.inputs.suite
+    if: github.event.inputs.suite == 'both' || github.event.inputs.suite == 'pricing' || github.event.inputs.suite == 'ip_lock' || github.event.inputs.suite == 'session' || github.event.inputs.suite == 'ui_ux' || !github.event.inputs.suite
     needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -294,9 +295,12 @@ jobs:
           if [ "${{ github.event.inputs.suite }}" = "pricing" ]; then
             echo "🚀 Running Pricing Page Suite for Project: $PROJECT_NAME"
             npx playwright test tests/pricing_page.spec.ts --project="$PROJECT_NAME"
-          elif [ "${{ github.event.inputs.suite }}" = "session" ]; then
-            echo "🚀 Running Session Stickiness Suite for Project: $PROJECT_NAME"
+          elif [ "${{ github.event.inputs.suite }}" = "ip_lock" ] || [ "${{ github.event.inputs.suite }}" = "session" ]; then
+            echo "🚀 Running IP Lock & Currency Conversion Suite for Project: $PROJECT_NAME"
             npx playwright test tests/session_ip_stickiness.spec.ts --project="$PROJECT_NAME"
+          elif [ "${{ github.event.inputs.suite }}" = "ui_ux" ]; then
+            echo "🚀 Running UI/UX & Responsiveness Suite for Project: $PROJECT_NAME"
+            npx playwright test tests/ui_ux_verification.spec.ts --project="$PROJECT_NAME"
           else
             echo "🚀 Running Standalone Audits (Pricing, IP Stickiness, UI/UX) for Project: $PROJECT_NAME"
             npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$PROJECT_NAME"
@@ -412,7 +416,7 @@ jobs:
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
           SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
-          SUITE_TYPE: ${{ github.event.inputs.suite == 'pricing' && 'Pricing Suite' || (github.event.inputs.suite == 'session' && 'Session Stickiness Suite' || (github.event.inputs.suite == 'funnel' && 'Checkout Funnel' || 'Window Sticker Suite')) }}
+          SUITE_TYPE: ${{ github.event.inputs.suite == 'pricing' && 'Pricing Suite' || ((github.event.inputs.suite == 'ip_lock' || github.event.inputs.suite == 'session') && 'IP Lock & Currency Conversion Suite' || (github.event.inputs.suite == 'ui_ux' && 'UI/UX & Responsiveness Suite' || (github.event.inputs.suite == 'funnel' && 'Checkout Funnel' || 'Window Sticker Suite'))) }}
         run: |
           node scripts/slack-notify.js
 
@@ -442,7 +446,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-orchestrator
           path: playwright-report/
           retention-days: 30
 
@@ -450,7 +454,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-report
+          name: allure-report-orchestrator
           path: allure-report-out/
           retention-days: 30
 
