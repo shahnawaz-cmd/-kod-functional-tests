@@ -61,7 +61,90 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # STEP 1: UPFRONT FLOW DETECTION & 1-SITE-PER-RUNNER MATRIX
+  # TRACK 1: STANDALONE AUDITS (RUNS IMMEDIATELY, NO FLOW DETECTION)
+  # ─────────────────────────────────────────────────────────────
+  standalone-audits:
+    name: 📊 Standalone Audits (${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get Playwright Version
+        id: playwright-version
+        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright Browsers (Chromium)
+        run: npx playwright install chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Pre-warm DNS Cache & Static Host Mappings
+        run: node -e "require('./global-setup.js')()"
+
+      - name: Run Standalone Audits (Pricing, IP Stickiness, UI/UX)
+        run: |
+          FILTER="${{ github.event.inputs.site_filter || 'all' }}"
+          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
+            SITE_NAME=$(node -e "
+              const sites = require('./sites.json');
+              const filter = '$FILTER';
+              const s = sites.find(x => x.id === filter || x.brand === filter || x.name.toLowerCase().includes(filter.toLowerCase()));
+              console.log(s ? s.name : filter);
+            ")
+            if [ "${{ matrix.shard }}" = "1/8" ]; then
+              echo "Running standalone audits for single site: $SITE_NAME"
+              npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$SITE_NAME" --project="${SITE_NAME}_MobileChrome" --workers=2
+            else
+              echo "Single site selected ($FILTER). Skipping redundant shard ${{ matrix.shard }}."
+            fi
+          else
+            npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --shard=${{ matrix.shard }} --workers=2
+          fi
+        env:
+          CI: true
+
+      - name: Upload Audits Blob Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: all-blob-reports-audits-${{ strategy.job-index }}
+          path: blob-report/
+          retention-days: 2
+
+      - name: Upload Audits Allure Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-audits-${{ strategy.job-index }}
+          path: allure-results/
+          retention-days: 2
+
+  # ─────────────────────────────────────────────────────────────
+  # TRACK 2A: UPFRONT FLOW DETECTION FOR SITES (RUNS CONCURRENTLY)
   # ─────────────────────────────────────────────────────────────
   setup-matrix:
     name: 🔍 Flow Detection & Matrix Setup
@@ -138,13 +221,13 @@ jobs:
           "
 
   # ─────────────────────────────────────────────────────────────
-  # STEP 2: 1 SITE PER RUNNER (PARALLEL EXECUTION)
+  # TRACK 2B: 1 SITE PER RUNNER (CHECKOUT FUNNEL SPEC ONLY)
   # ─────────────────────────────────────────────────────────────
-  site-runner:
+  site-funnel:
     name: 🧪 ${{ matrix.site.name }} (${{ matrix.site.flow }})
     needs: setup-matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     continue-on-error: true
     strategy:
       fail-fast: false
@@ -188,27 +271,27 @@ jobs:
       - name: Pre-warm DNS Cache & Static Host Mappings
         run: node -e "require('./global-setup.js')()"
 
-      - name: Run Funnel & Audits for ${{ matrix.site.name }}
+      - name: Run Checkout Funnel for ${{ matrix.site.name }}
         run: |
-          npx playwright test "${{ matrix.site.testFile }}" tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="${{ matrix.site.name }}" --project="${{ matrix.site.name }}_MobileChrome" --workers=2
+          npx playwright test "${{ matrix.site.testFile }}" --project="${{ matrix.site.name }}" --project="${{ matrix.site.name }}_MobileChrome" --workers=2
         env:
           CI: true
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Upload Blob Reports
+      - name: Upload Funnel Blob Reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: all-blob-reports-${{ matrix.site.id }}
+          name: all-blob-reports-funnel-${{ matrix.site.id }}
           path: blob-report/
           retention-days: 2
 
-      - name: Upload Allure Results
+      - name: Upload Funnel Allure Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-results-${{ matrix.site.id }}
+          name: allure-results-funnel-${{ matrix.site.id }}
           path: allure-results/
           retention-days: 2
 
@@ -216,7 +299,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: test-results-${{ matrix.site.id }}
+          name: test-results-funnel-${{ matrix.site.id }}
           path: test-results/
           retention-days: 7
 
@@ -226,7 +309,7 @@ jobs:
   merge-reports:
     name: 📊 Consolidate Reports & Notify
     if: always()
-    needs: [setup-matrix, site-runner]
+    needs: [standalone-audits, site-funnel]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
