@@ -114,8 +114,8 @@ const titleText = isSiteMode
           ? `✅ [${siteFilter.toUpperCase()}] Verification Suite — All Passed`
           : `🚨 [${siteFilter.toUpperCase()}] Verification Suite — ${failedTests} Failure(s) Detected`)
       : (isPassing
-          ? `✅ KOD Window Sticker Suite — All ${siteCount} Domains Passed`
-          : `🚨 KOD Window Sticker Suite — ${failedTests} Failure(s) Detected`));
+          ? `✅ KOD ${suiteType} — All ${siteCount} Domains Passed`
+          : `🚨 KOD ${suiteType} — ${failedTests} Failure(s) Detected`));
 
 const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
 

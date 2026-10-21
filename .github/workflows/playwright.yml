@@ -61,179 +61,52 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # TRACK 1: STANDALONE AUDITS (RUNS IMMEDIATELY, NO FLOW DETECTION)
+  # STEP 1: SETUP DYNAMIC MATRIX FROM sites.json
   # ─────────────────────────────────────────────────────────────
-  standalone-audits:
-    name: 📊 Standalone Audits (${{ matrix.shard }})
+  setup:
+    name: ⚙️ Setup Orchestrator Matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      max-parallel: 8
-      matrix:
-        shard: ['1/8', '2/8', '3/8', '4/8', '5/8', '6/8', '7/8', '8/8']
-
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Get Playwright Version
-        id: playwright-version
-        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
-
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
-
-      - name: Install Playwright Browsers (Chromium)
-        run: npx playwright install chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
 
       - name: Pre-warm DNS Cache & Static Host Mappings
         run: node -e "require('./global-setup.js')()"
 
-      - name: Run Standalone Audits (Pricing, IP Stickiness, UI/UX)
+      - name: Generate Dynamic Matrix Output
+        id: set-matrix
         run: |
           FILTER="${{ github.event.inputs.site_filter || 'all' }}"
           if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
-            SITE_NAME=$(node -e "
+            echo "Filtering for site: $FILTER"
+            MATRIX_JSON=$(node -e "
               const sites = require('./sites.json');
-              const filter = '$FILTER';
-              const s = sites.find(x => x.id === filter || x.brand === filter || x.name.toLowerCase().includes(filter.toLowerCase()));
-              console.log(s ? s.name : filter);
+              const filtered = sites.filter(s => s.id === '$FILTER' || s.brand === '$FILTER' || s.name.toLowerCase().includes('$FILTER'.toLowerCase()));
+              console.log(JSON.stringify(filtered.length ? filtered : sites));
             ")
-            if [ "${{ matrix.shard }}" = "1/8" ]; then
-              echo "Running standalone audits for single site: $SITE_NAME"
-              npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$SITE_NAME" --project="${SITE_NAME}_MobileChrome" --workers=2
-            else
-              echo "Single site selected ($FILTER). Skipping redundant shard ${{ matrix.shard }}."
-            fi
           else
-            npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --shard=${{ matrix.shard }} --workers=2
+            MATRIX_JSON=$(cat sites.json | tr -d '\n' | tr -d ' ')
           fi
-        env:
-          CI: true
-
-      - name: Upload Audits Blob Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: all-blob-reports-audits-${{ strategy.job-index }}
-          path: blob-report/
-          retention-days: 2
-
-      - name: Upload Audits Allure Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results-audits-${{ strategy.job-index }}
-          path: allure-results/
-          retention-days: 2
+          echo "matrix=${MATRIX_JSON}" >> $GITHUB_OUTPUT
 
   # ─────────────────────────────────────────────────────────────
-  # TRACK 2A: UPFRONT FLOW DETECTION FOR SITES (RUNS CONCURRENTLY)
+  # STEP 2A: RUN CHECKOUT FUNNEL PER SITE (FULL PARALLEL RUNNERS)
   # ─────────────────────────────────────────────────────────────
-  setup-matrix:
-    name: 🔍 Flow Detection & Matrix Setup
+  test-site:
+    name: 🛒 Funnel • ${{ matrix.site.name }} (${{ matrix.browser }})
+    needs: setup
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      sites_matrix: ${{ steps.generate-matrix.outputs.sites_matrix }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install Chromium for Detection
-        run: npx playwright install chromium
-
-      - name: Pre-warm DNS Cache
-        run: node -e "require('./global-setup.js')()"
-
-      - name: Run Upfront Concurrent Flow Detection
-        run: |
-          FILTER="${{ github.event.inputs.site_filter || 'all' }}"
-          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
-            echo "Inspecting single target site: $FILTER"
-            node scripts/detect-flow.js
-          else
-            echo "Inspecting all 30 production domains concurrently..."
-            node scripts/detect-flow.js --all
-          fi
-
-      - name: Generate 1-Site-Per-Runner Matrix
-        id: generate-matrix
-        run: |
-          FILTER="${{ github.event.inputs.site_filter || 'all' }}"
-          node -e "
-            const fs = require('fs');
-            const sites = require('./sites.json');
-            let flowMap = {};
-            try {
-              flowMap = JSON.parse(fs.readFileSync('./flow-detection.json', 'utf-8'));
-            } catch (e) {}
-
-            const filter = '$FILTER';
-            let selected = sites;
-            if (filter && filter !== 'all') {
-              selected = sites.filter(s => s.id === filter || s.brand === filter || s.name.toLowerCase().includes(filter.toLowerCase()));
-              if (selected.length === 0) selected = sites;
-            }
-
-            const matrix = selected.map(s => {
-              const flow = flowMap[s.name] || 'streaming';
-              const testFile = flow === 'non_streaming'
-                ? 'tests/global_case_verification.spec.ts'
-                : 'streaming Task/global_streaming_specs.spec.js';
-              return {
-                id: s.id,
-                name: s.name,
-                url: s.url,
-                flow: flow,
-                testFile: testFile
-              };
-            });
-
-            console.log('Generated matrix entries: ' + matrix.length);
-            const jsonStr = JSON.stringify(matrix);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sites_matrix=' + jsonStr + '\n');
-          "
-
-  # ─────────────────────────────────────────────────────────────
-  # TRACK 2B: 1 SITE PER RUNNER (CHECKOUT FUNNEL SPEC ONLY)
-  # ─────────────────────────────────────────────────────────────
-  site-funnel:
-    name: 🧪 ${{ matrix.site.name }} (${{ matrix.site.flow }})
-    needs: setup-matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 15
       matrix:
-        site: ${{ fromJson(needs.setup-matrix.outputs.sites_matrix) }}
+        site: ${{ fromJson(needs.setup.outputs.matrix) }}
+        browser:
+          - Desktop
+          - MobileChrome
 
     steps:
       - name: Checkout Code
@@ -271,37 +144,190 @@ jobs:
       - name: Pre-warm DNS Cache & Static Host Mappings
         run: node -e "require('./global-setup.js')()"
 
-      - name: Run Checkout Funnel for ${{ matrix.site.name }}
+      - name: Run Checkout Funnel tests for ${{ matrix.site.name }}
+        id: playwright-run
+        continue-on-error: true
         run: |
-          npx playwright test "${{ matrix.site.testFile }}" --project="${{ matrix.site.name }}" --project="${{ matrix.site.name }}_MobileChrome" --workers=2
+          if [ "${{ matrix.browser }}" = "Desktop" ]; then
+            PROJECT_NAME="${{ matrix.site.name }}"
+          else
+            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
+          fi
+          echo "🚀 Detecting Flow and Running Checkout Funnel for Project: $PROJECT_NAME on URL: ${{ matrix.site.url }}"
+          node scripts/run-flow.js --project="$PROJECT_NAME"
+        env:
+          CI: true
+          BASE_URL: "${{ matrix.site.url }}"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Run AI Agentic Self-Healer (On Test Failure)
+        if: steps.playwright-run.outcome == 'failure'
+        timeout-minutes: 5
+        run: |
+          if [ "${{ matrix.browser }}" = "Desktop" ]; then
+            PROJECT_NAME="${{ matrix.site.name }}"
+          else
+            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
+          fi
+          PLAYWRIGHT_PROJECT=$PROJECT_NAME npm run heal:prod
         env:
           CI: true
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Upload Funnel Blob Reports
+      - name: Upload Blob Report
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: all-blob-reports-funnel-${{ matrix.site.id }}
+          name: all-blob-reports-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
           path: blob-report/
           retention-days: 2
 
-      - name: Upload Funnel Allure Results
+      - name: Upload Allure Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-results-funnel-${{ matrix.site.id }}
+          name: allure-results-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
           path: allure-results/
           retention-days: 2
 
-      - name: Upload Failure Videos & Test Results
+      - name: Upload Raw Test Results & Videos
         uses: actions/upload-artifact@v4
-        if: failure()
+        if: always()
         with:
-          name: test-results-funnel-${{ matrix.site.id }}
+          name: test-results-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
           path: test-results/
           retention-days: 7
+
+      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
+        if: steps.playwright-run.outcome == 'failure'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+          SITE_NAME: ${{ matrix.site.name }}
+          SITE_URL: ${{ matrix.site.url }}
+          BROWSER_NAME: ${{ matrix.browser }}
+          SUITE_TYPE: 'Checkout Funnel'
+          RUN_STATUS: ${{ steps.playwright-run.outcome }}
+        run: |
+          node scripts/slack-notify.js --site-mode --failures-only
+
+  # ─────────────────────────────────────────────────────────────
+  # STEP 2B: RUN STANDALONE AUDITS PER SITE (FULL PARALLEL RUNNERS)
+  # ─────────────────────────────────────────────────────────────
+  test-standalone:
+    name: 🔍 Audits • ${{ matrix.site.name }} (${{ matrix.browser }})
+    needs: setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        site: ${{ fromJson(needs.setup.outputs.matrix) }}
+        browser:
+          - Desktop
+          - MobileChrome
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Get Playwright Version
+        id: playwright-version
+        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
+
+      - name: Install Playwright Browsers (Chromium)
+        run: npx playwright install chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Mask Sensitive Secrets in CI Logs
+        run: |
+          echo "::add-mask::${{ secrets.GEMINI_API_KEY }}"
+          echo "::add-mask::${{ secrets.SLACK_WEBHOOK_URL }}"
+
+      - name: Pre-warm DNS Cache & Static Host Mappings
+        run: node -e "require('./global-setup.js')()"
+
+      - name: Run Standalone Audits for ${{ matrix.site.name }}
+        id: standalone-run
+        continue-on-error: true
+        run: |
+          if [ "${{ matrix.browser }}" = "Desktop" ]; then
+            PROJECT_NAME="${{ matrix.site.name }}"
+          else
+            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
+          fi
+          echo "🚀 Running Standalone Audits (Pricing, IP Stickiness, UI/UX) for Project: $PROJECT_NAME"
+          npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$PROJECT_NAME"
+        env:
+          CI: true
+          BASE_URL: "${{ matrix.site.url }}"
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+      - name: Upload Blob Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: all-blob-reports-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: blob-report/
+          retention-days: 2
+
+      - name: Upload Allure Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: allure-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: allure-results/
+          retention-days: 2
+
+      - name: Upload Raw Test Results & Videos
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 7
+
+      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Audits (${{ matrix.browser }})
+        if: steps.standalone-run.outcome == 'failure'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_SERVER: ${{ github.server_url }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_RUN: ${{ github.run_id }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REF: ${{ github.ref_name }}
+          GITHUB_SHA_VAL: ${{ github.sha }}
+          GITHUB_EVENT: ${{ github.event_name }}
+          SITE_NAME: ${{ matrix.site.name }}
+          SITE_URL: ${{ matrix.site.url }}
+          BROWSER_NAME: ${{ matrix.browser }}
+          SUITE_TYPE: 'Standalone Audits'
+          RUN_STATUS: ${{ steps.standalone-run.outcome }}
+        run: |
+          node scripts/slack-notify.js --site-mode --failures-only
 
   # ─────────────────────────────────────────────────────────────
   # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
@@ -309,7 +335,7 @@ jobs:
   merge-reports:
     name: 📊 Consolidate Reports & Notify
     if: always()
-    needs: [standalone-audits, site-funnel]
+    needs: [test-site, test-standalone]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
