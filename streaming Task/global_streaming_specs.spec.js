@@ -36,7 +36,7 @@ test.beforeEach(async ({ context, page }, testInfo) => {
   // but allow clarity.ms for clarity verification tests
   const isClarityTest = testInfo.title.toLowerCase().includes('clarity');
   const trackerPattern = isClarityTest
-    ? /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
+    ? /.*(google-analytics\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
     : /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i;
   await page.route(trackerPattern, (route) => route.abort()).catch(() => {});
 });
@@ -565,7 +565,7 @@ test('TC_30_Exit_Popup_Behaviour_On_Sample_Links_Validation', async ({ page, con
   await exitPopupTask.performAs(page, context);
 });
 
-test('TC_31_Clarity_Three_Wrapper_Verification', async ({ page, context }, testInfo) => {
+test('TC_31_Clarity_Three_Wrapper_Verification @P0 @Clarity', async ({ page, context }, testInfo) => {
   const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.toLowerCase().includes('mobile'));
   test.skip(isMobile, 'Skipping clarity wrapper validation on mobile browsers');
 

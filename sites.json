@@ -142,5 +142,41 @@
     "brand": "volvo",
     "name": "VolvoWindowSticker",
     "url": "https://volvowindowsticker.com"
+  },
+  {
+    "id": "volkswagen",
+    "brand": "volkswagen",
+    "name": "VolkswagenWindowSticker",
+    "url": "https://volkswagenwindowsticker.com"
+  },
+  {
+    "id": "subaru",
+    "brand": "subaru",
+    "name": "SubaruWindowStickers",
+    "url": "https://subaruwindowstickers.com"
+  },
+  {
+    "id": "vwwindowstickers",
+    "brand": "vw",
+    "name": "VwWindowStickers",
+    "url": "https://vwwindowstickers.com"
+  },
+  {
+    "id": "minicooper",
+    "brand": "mini",
+    "name": "MiniCooperWindowSticker",
+    "url": "https://minicooperwindowsticker.com"
+  },
+  {
+    "id": "fordlookup",
+    "brand": "ford",
+    "name": "FordWindowStickerLookup",
+    "url": "https://fordwindowstickerlookup.com"
+  },
+  {
+    "id": "infiniti",
+    "brand": "infiniti",
+    "name": "InfinitiWindowSticker",
+    "url": "https://infinitiwindowsticker.com"
   }
 ]

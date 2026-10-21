@@ -77,7 +77,7 @@ const failedTests = stats.unexpected || 0;
 const totalTests = effectivePassed + failedTests;
 
 // Count active sites from sites.json
-let siteCount = 14;
+let siteCount = 30;
 try {
   const sitesPath = path.resolve(process.cwd(), 'sites.json');
   if (fs.existsSync(sitesPath)) {

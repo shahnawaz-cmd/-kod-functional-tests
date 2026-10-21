@@ -63,7 +63,7 @@ test.describe('Pricing Page Suite', () => {
 
     await navigateToPricing(page, testInfo);
     const task = new PricingTabSwitchTask();
-    await task.performAs(page);
+    await task.performAs(page, testInfo);
   });
 
   // ─────────────────────────────────────────────────────────────

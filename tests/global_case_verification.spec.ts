@@ -31,7 +31,7 @@ test.beforeEach(async ({ context, page }, testInfo) => {
   if (process.env.CI) {
     const isClarityTest = testInfo.title.toLowerCase().includes('clarity');
     const trackerPattern = isClarityTest
-      ? /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
+      ? /.*(google-analytics\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i
       : /.*(google-analytics\.com|googletagmanager\.com|hotjar\.com|clarity\.ms|connect\.facebook\.net|snap\.licdn\.com).*/i;
     await page.route(trackerPattern, (route) => route.abort()).catch(() => {});
   }
@@ -243,7 +243,7 @@ test('TC_17 Classic editable specs update only from preview validation', async (
 //   }
 // });
 
-test('TC_19 Microsoft Clarity three wrapper verification (Homepage -> Preview -> Checkout)', async ({ page, context }, testInfo) => {
+test('TC_19 Microsoft Clarity three wrapper verification (Homepage -> Preview -> Checkout) @P0 @Clarity', async ({ page, context }, testInfo) => {
   const isMobile = Boolean(testInfo.project.use?.isMobile || testInfo.project.name.toLowerCase().includes('mobile'));
   test.skip(isMobile, 'Skipping Clarity verification on mobile emulators (runs on desktop browsers)');
 

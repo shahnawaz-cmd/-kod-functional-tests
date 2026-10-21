@@ -66,6 +66,12 @@ All domains are maintained in [`sites.json`](sites.json) and automatically mappe
 | 22 | Mitsubishi | `mitsubishi` | `https://mitsubishiwindowsticker.com` | `streaming` |
 | 23 | Lincoln | `lincoln` | `https://lincolnwindowsticker.com` | `streaming` |
 | 24 | Volvo | `volvo` | `https://volvowindowsticker.com` | `streaming` |
+| 25 | Volkswagen | `volkswagen` | `https://volkswagenwindowsticker.com` | `streaming` |
+| 26 | Subaru | `subaru` | `https://subaruwindowstickers.com` | `streaming` |
+| 27 | VW | `vwwindowstickers` | `https://vwwindowstickers.com` | `streaming` |
+| 28 | Mini Cooper | `minicooper` | `https://minicooperwindowsticker.com` | `streaming` |
+| 29 | Ford Lookup | `fordlookup` | `https://fordwindowstickerlookup.com` | `streaming` |
+| 30 | Infiniti | `infiniti` | `https://infinitiwindowsticker.com` | `streaming` |
 
 ---
 

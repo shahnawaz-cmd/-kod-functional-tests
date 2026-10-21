@@ -7,6 +7,10 @@ permissions:
   actions: write
   id-token: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   schedule:
     # Run daily at 00:00 UTC
@@ -44,6 +48,12 @@ on:
           - mitsubishi
           - lincoln
           - volvo
+          - volkswagen
+          - subaru
+          - vwwindowstickers
+          - minicooper
+          - fordlookup
+          - infiniti
 
 env:
   UV_THREADPOOL_SIZE: 64
@@ -51,50 +61,67 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # STEP 1: SETUP DYNAMIC MATRIX FROM sites.json
+  # STEP 1: SETUP 4-BUCKET SITE BATCH MATRIX
   # ─────────────────────────────────────────────────────────────
   setup:
     name: ⚙️ Setup Orchestrator Matrix
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      buckets: ${{ steps.set-matrix.outputs.buckets }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Generate Dynamic Matrix Output
+      - name: Generate 4-Bucket Site Matrix Output
         id: set-matrix
         run: |
           FILTER="${{ github.event.inputs.site_filter || 'all' }}"
-          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
-            echo "Filtering for site: $FILTER"
-            MATRIX_JSON=$(node -e "
-              const sites = require('./sites.json');
-              const filtered = sites.filter(s => s.id === '$FILTER' || s.brand === '$FILTER' || s.name.toLowerCase().includes('$FILTER'.toLowerCase()));
-              console.log(JSON.stringify(filtered.length ? filtered : sites));
-            ")
-          else
-            MATRIX_JSON=$(cat sites.json | tr -d '\n' | tr -d ' ')
-          fi
-          echo "matrix=${MATRIX_JSON}" >> $GITHUB_OUTPUT
+          echo "Filter input: $FILTER"
+          BUCKETS_JSON=$(node -e "
+            const sites = require('./sites.json');
+            const filter = '$FILTER';
+            let buckets;
+            if (filter && filter !== 'all') {
+              const filtered = sites.filter(s => s.id === filter || s.brand === filter || s.name.toLowerCase().includes(filter.toLowerCase()));
+              const targetSites = filtered.length ? filtered : sites;
+              buckets = [{
+                bucket_id: 1,
+                title: 'Single Site (' + targetSites.map(s => s.id).join(', ') + ')',
+                sites: targetSites
+              }];
+            } else {
+              const NUM_BUCKETS = 4;
+              buckets = Array.from({ length: NUM_BUCKETS }, (_, i) => ({
+                bucket_id: i + 1,
+                title: '',
+                sites: []
+              }));
+              sites.forEach((site, index) => {
+                buckets[index % NUM_BUCKETS].sites.push(site);
+              });
+              buckets.forEach(b => {
+                const sample = b.sites.slice(0, 3).map(s => s.id).join(', ');
+                b.title = 'Batch ' + b.bucket_id + ' (' + sample + '...)';
+              });
+            }
+            console.log(JSON.stringify(buckets));
+          ")
+          echo "buckets=${BUCKETS_JSON}" >> $GITHUB_OUTPUT
 
   # ─────────────────────────────────────────────────────────────
-  # STEP 2A: RUN CHECKOUT FUNNEL PER SITE (SEPARATE RUNNER)
+  # STEP 2: RUN SITE BATCHES (4 PARALLEL RUNNERS FOR ALL 24+ SITES)
   # ─────────────────────────────────────────────────────────────
-  test-site:
-    name: 🛒 Funnel • ${{ matrix.site.name }} (${{ matrix.browser }})
+  test-batch:
+    name: 🧪 ${{ matrix.bucket.title }}
     needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 60
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 4
       matrix:
-        site: ${{ fromJson(needs.setup.outputs.matrix) }}
-        browser:
-          - Desktop
-          - MobileChrome
+        bucket: ${{ fromJson(needs.setup.outputs.buckets) }}
 
     steps:
       - name: Checkout Code
@@ -129,63 +156,13 @@ jobs:
           echo "::add-mask::${{ secrets.GEMINI_API_KEY }}"
           echo "::add-mask::${{ secrets.SLACK_WEBHOOK_URL }}"
 
-      - name: Run Checkout Funnel tests for ${{ matrix.site.name }}
-        id: playwright-run
-        continue-on-error: true
+      - name: Run Funnel & Standalone Audits for ${{ matrix.bucket.title }}
+        id: batch-run
         run: |
-          if [ "${{ matrix.browser }}" = "Desktop" ]; then
-            PROJECT_NAME="${{ matrix.site.name }}"
-          else
-            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
-          fi
-          echo "🚀 Detecting Flow and Running Checkout Funnel for Project: $PROJECT_NAME on URL: ${{ matrix.site.url }}"
-          node scripts/run-flow.js --project="$PROJECT_NAME"
-        env:
-          CI: true
-          BASE_URL: "${{ matrix.site.url }}"
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      - name: Run AI Agentic Self-Healer (On Test Failure)
-        if: steps.playwright-run.outcome == 'failure'
-        timeout-minutes: 5
-        run: |
-          if [ "${{ matrix.browser }}" = "Desktop" ]; then
-            PROJECT_NAME="${{ matrix.site.name }}"
-          else
-            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
-          fi
-          PLAYWRIGHT_PROJECT=$PROJECT_NAME npm run heal:prod
+          node scripts/run-site-batch.js --sites='${{ toJson(matrix.bucket.sites) }}'
         env:
           CI: true
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      - name: Upload Blob Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: all-blob-reports-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
-          path: blob-report/
-          retention-days: 2
-
-      - name: Upload Allure Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
-          path: allure-results/
-          retention-days: 2
-
-      - name: Upload Raw Test Results & Videos
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results-funnel-${{ matrix.site.id }}-${{ matrix.browser }}
-          path: test-results/
-          retention-days: 7
-
-      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
-        if: steps.playwright-run.outcome == 'failure'
-        env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           GITHUB_SERVER: ${{ github.server_url }}
           GITHUB_REPO: ${{ github.repository }}
@@ -194,86 +171,12 @@ jobs:
           GITHUB_REF: ${{ github.ref_name }}
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
-          SITE_NAME: ${{ matrix.site.name }}
-          SITE_URL: ${{ matrix.site.url }}
-          BROWSER_NAME: ${{ matrix.browser }}
-          SUITE_TYPE: 'Checkout Funnel'
-          RUN_STATUS: ${{ steps.playwright-run.outcome }}
-        run: |
-          node scripts/slack-notify.js --site-mode --failures-only
 
-  # ─────────────────────────────────────────────────────────────
-  # STEP 2B: RUN STANDALONE AUDITS PER SITE (SEPARATE RUNNER)
-  # ─────────────────────────────────────────────────────────────
-  test-standalone:
-    name: 🔍 Audits • ${{ matrix.site.name }} (${{ matrix.browser }})
-    needs: setup
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      max-parallel: 2
-      matrix:
-        site: ${{ fromJson(needs.setup.outputs.matrix) }}
-        browser:
-          - Desktop
-          - MobileChrome
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Get Playwright Version
-        id: playwright-version
-        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
-
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
-
-      - name: Install Playwright Browsers (Chromium)
-        run: npx playwright install chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-
-      - name: Mask Sensitive Secrets in CI Logs
-        run: |
-          echo "::add-mask::${{ secrets.GEMINI_API_KEY }}"
-          echo "::add-mask::${{ secrets.SLACK_WEBHOOK_URL }}"
-
-      - name: Run Standalone Audits for ${{ matrix.site.name }}
-        id: standalone-run
-        continue-on-error: true
-        run: |
-          if [ "${{ matrix.browser }}" = "Desktop" ]; then
-            PROJECT_NAME="${{ matrix.site.name }}"
-          else
-            PROJECT_NAME="${{ matrix.site.name }}_${{ matrix.browser }}"
-          fi
-          echo "🚀 Running Standalone Audits (Pricing, IP Stickiness, UI/UX) for Project: $PROJECT_NAME"
-          npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$PROJECT_NAME"
-        env:
-          CI: true
-          BASE_URL: "${{ matrix.site.url }}"
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-
-      - name: Upload Blob Report
+      - name: Upload Blob Reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: all-blob-reports-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          name: all-blob-reports-batch-${{ matrix.bucket.bucket_id }}
           path: blob-report/
           retention-days: 2
 
@@ -281,7 +184,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          name: allure-results-batch-${{ matrix.bucket.bucket_id }}
           path: allure-results/
           retention-days: 2
 
@@ -289,28 +192,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-standalone-${{ matrix.site.id }}-${{ matrix.browser }}
+          name: test-results-batch-${{ matrix.bucket.bucket_id }}
           path: test-results/
           retention-days: 7
-
-      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Audits (${{ matrix.browser }})
-        if: steps.standalone-run.outcome == 'failure'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GITHUB_SERVER: ${{ github.server_url }}
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_RUN: ${{ github.run_id }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REF: ${{ github.ref_name }}
-          GITHUB_SHA_VAL: ${{ github.sha }}
-          GITHUB_EVENT: ${{ github.event_name }}
-          SITE_NAME: ${{ matrix.site.name }}
-          SITE_URL: ${{ matrix.site.url }}
-          BROWSER_NAME: ${{ matrix.browser }}
-          SUITE_TYPE: 'Standalone Audits'
-          RUN_STATUS: ${{ steps.standalone-run.outcome }}
-        run: |
-          node scripts/slack-notify.js --site-mode --failures-only
 
   # ─────────────────────────────────────────────────────────────
   # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
@@ -318,7 +202,7 @@ jobs:
   merge-reports:
     name: 📊 Consolidate Reports & Notify
     if: always()
-    needs: [test-site, test-standalone]
+    needs: [test-batch]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code

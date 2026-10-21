@@ -71,10 +71,18 @@ export class PricingCouponDiscountTask {
     await test.step(`Step 3: Verify Prices Reflect Discount Percentage (${discountStr})`, async () => {
       console.log(`🔍 [Pricing Coupon] Validating card prices reflect ${discountStr} discount...`);
 
-      // 1. Locate the single-item plan card (1 Sticker or 1 Report) to avoid collision with bundle cards
-      const singleItemCard = page.locator('div, section, article')
-        .filter({ has: page.getByRole('heading', { name: /1\s*(sticker|report)/i }) })
-        .first();
+      // 1. Locate the single-item plan card (1 Sticker or 1 Report) across legacy headings and modern badge spans
+      const singleItemIndicator = page.getByRole('heading', { name: /1\s*(sticker|report)/i })
+        .or(page.getByText(/^\s*1\s*(sticker|report)\s*$/i));
+
+      const cardLocator = page.locator('div[class*="border"], div[class*="card"], div[class*="plan"]')
+        .filter({ has: singleItemIndicator })
+        .filter({ has: page.getByRole('button', { name: /Get.*(Report|Sticker)/i }) });
+
+      const count = await cardLocator.count();
+      const singleItemCard = count > 0
+        ? cardLocator.first()
+        : page.locator('div, section, article').filter({ has: singleItemIndicator }).filter({ has: page.getByRole('button', { name: /Get.*(Report|Sticker)/i }) }).last();
 
       await expect(singleItemCard).toBeVisible({ timeout: 15000 });
 
@@ -102,6 +110,25 @@ export class PricingCouponDiscountTask {
           const priceElement = singleItemCard.locator('*').filter({ hasText: formattedPriceRegex }).first();
           await expect(priceElement).toBeVisible({ timeout: 12000 });
           console.log(`✅ [Price Reflection Passed] 1 Report/Sticker card reflects discount from original $${origPrice}: $${expectedDiscountedPrice} (Save ${discountStr})`);
+
+          if (testInfo) {
+            testInfo.annotations.push({
+              type: 'Coupon Price Reflection',
+              description: `Original: $${origPrice} -> Discounted: $${expectedDiscountedPrice} (Save ${discountStr})`
+            });
+            await testInfo.attach('coupon-discount-actual-result.json', {
+              body: JSON.stringify({
+                status: 'SUCCESS',
+                couponCode: this.couponCode,
+                discountPercent: this.discountPercent,
+                originalPrice: origPrice,
+                discountedPrice: expectedDiscountedPrice,
+                cardText: (await singleItemCard.innerText().catch(() => '')).replace(/\n+/g, ' | ').trim(),
+                timestamp: new Date().toISOString()
+              }, null, 2),
+              contentType: 'application/json'
+            });
+          }
           return;
         }
       }
