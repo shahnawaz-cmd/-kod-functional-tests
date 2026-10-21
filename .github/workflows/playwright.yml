@@ -25,6 +25,7 @@ on:
         options:
           - 'both'
           - 'pricing'
+          - 'session'
           - 'funnel'
       site_filter:
         description: 'Select website to run (or "all" for all websites)'
@@ -232,7 +233,7 @@ jobs:
   # ─────────────────────────────────────────────────────────────
   test-standalone:
     name: 🔍 Audits • ${{ matrix.site.name }} (${{ matrix.browser }})
-    if: github.event.inputs.suite == 'both' || github.event.inputs.suite == 'pricing' || !github.event.inputs.suite
+    if: github.event.inputs.suite == 'both' || github.event.inputs.suite == 'pricing' || github.event.inputs.suite == 'session' || !github.event.inputs.suite
     needs: setup
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -293,6 +294,9 @@ jobs:
           if [ "${{ github.event.inputs.suite }}" = "pricing" ]; then
             echo "🚀 Running Pricing Page Suite for Project: $PROJECT_NAME"
             npx playwright test tests/pricing_page.spec.ts --project="$PROJECT_NAME"
+          elif [ "${{ github.event.inputs.suite }}" = "session" ]; then
+            echo "🚀 Running Session Stickiness Suite for Project: $PROJECT_NAME"
+            npx playwright test tests/session_ip_stickiness.spec.ts --project="$PROJECT_NAME"
           else
             echo "🚀 Running Standalone Audits (Pricing, IP Stickiness, UI/UX) for Project: $PROJECT_NAME"
             npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="$PROJECT_NAME"
@@ -408,7 +412,7 @@ jobs:
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
           SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
-          SUITE_TYPE: ${{ github.event.inputs.suite == 'pricing' && 'Pricing Suite' || (github.event.inputs.suite == 'funnel' && 'Checkout Funnel' || 'Window Sticker Suite') }}
+          SUITE_TYPE: ${{ github.event.inputs.suite == 'pricing' && 'Pricing Suite' || (github.event.inputs.suite == 'session' && 'Session Stickiness Suite' || (github.event.inputs.suite == 'funnel' && 'Checkout Funnel' || 'Window Sticker Suite')) }}
         run: |
           node scripts/slack-notify.js
 
