@@ -61,82 +61,14 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────────────────────
-  # TRACK 1: STANDALONE AUDITS (RUNS IMMEDIATELY, NO FLOW DETECTION)
+  # STEP 1: UPFRONT FLOW DETECTION & 1-SITE-PER-RUNNER MATRIX
   # ─────────────────────────────────────────────────────────────
-  standalone-audits:
-    name: 📊 Standalone Audits (${{ matrix.shard }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      max-parallel: 10
-      matrix:
-        shard: ['1/10', '2/10', '3/10', '4/10', '5/10', '6/10', '7/10', '8/10', '9/10', '10/10']
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Get Playwright Version
-        id: playwright-version
-        run: echo "PLAYWRIGHT_VERSION=$(node -e "console.log(require('./package-lock.json').packages['node_modules/@playwright/test'].version)")" >> $GITHUB_ENV
-
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ env.PLAYWRIGHT_VERSION }}
-
-      - name: Install Playwright Browsers (Chromium)
-        run: npx playwright install chromium
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-
-      - name: Pre-warm DNS Cache & Static Host Mappings
-        run: node -e "require('./global-setup.js')()"
-
-      - name: Run Standalone Audits (Pricing, IP Stickiness, UI/UX)
-        run: |
-          npx playwright test tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --shard=${{ matrix.shard }} --workers=2
-        env:
-          CI: true
-
-      - name: Upload Audits Blob Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: all-blob-reports-audits-${{ strategy.job-index }}
-          path: blob-report/
-          retention-days: 2
-
-      - name: Upload Audits Allure Results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: allure-results-audits-${{ strategy.job-index }}
-          path: allure-results/
-          retention-days: 2
-
-  # ─────────────────────────────────────────────────────────────
-  # TRACK 2A: UPFRONT FLOW DETECTION FOR SITES (RUNS CONCURRENTLY)
-  # ─────────────────────────────────────────────────────────────
-  funnel-detect:
+  setup-matrix:
     name: 🔍 Flow Detection & Matrix Setup
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      shards: ${{ steps.set-shards.outputs.shards }}
-      filter: ${{ steps.set-shards.outputs.filter }}
+      sites_matrix: ${{ steps.generate-matrix.outputs.sites_matrix }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -156,40 +88,69 @@ jobs:
       - name: Pre-warm DNS Cache
         run: node -e "require('./global-setup.js')()"
 
-      - name: Run Fast Concurrent Flow Detection
-        run: |
-          node scripts/detect-flow.js --all
-
-      - name: Generate Funnel Shard Matrix
-        id: set-shards
+      - name: Run Upfront Concurrent Flow Detection
         run: |
           FILTER="${{ github.event.inputs.site_filter || 'all' }}"
-          echo "Filter input: $FILTER"
-          SHARDS_JSON=$(node -e "
+          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
+            echo "Inspecting single target site: $FILTER"
+            node scripts/detect-flow.js
+          else
+            echo "Inspecting all 30 production domains concurrently..."
+            node scripts/detect-flow.js --all
+          fi
+
+      - name: Generate 1-Site-Per-Runner Matrix
+        id: generate-matrix
+        run: |
+          FILTER="${{ github.event.inputs.site_filter || 'all' }}"
+          node -e "
+            const fs = require('fs');
+            const sites = require('./sites.json');
+            let flowMap = {};
+            try {
+              flowMap = JSON.parse(fs.readFileSync('./flow-detection.json', 'utf-8'));
+            } catch (e) {}
+
             const filter = '$FILTER';
+            let selected = sites;
             if (filter && filter !== 'all') {
-              console.log(JSON.stringify(['single']));
-            } else {
-              console.log(JSON.stringify(['1/10', '2/10', '3/10', '4/10', '5/10', '6/10', '7/10', '8/10', '9/10', '10/10']));
+              selected = sites.filter(s => s.id === filter || s.brand === filter || s.name.toLowerCase().includes(filter.toLowerCase()));
+              if (selected.length === 0) selected = sites;
             }
-          ")
-          echo "shards=${SHARDS_JSON}" >> $GITHUB_OUTPUT
-          echo "filter=${FILTER}" >> $GITHUB_OUTPUT
+
+            const matrix = selected.map(s => {
+              const flow = flowMap[s.name] || 'streaming';
+              const testFile = flow === 'non_streaming'
+                ? 'tests/global_case_verification.spec.ts'
+                : 'streaming Task/global_streaming_specs.spec.js';
+              return {
+                id: s.id,
+                name: s.name,
+                url: s.url,
+                flow: flow,
+                testFile: testFile
+              };
+            });
+
+            console.log('Generated matrix entries: ' + matrix.length);
+            const jsonStr = JSON.stringify(matrix);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'sites_matrix=' + jsonStr + '\n');
+          "
 
   # ─────────────────────────────────────────────────────────────
-  # TRACK 2B: CHECKOUT FUNNEL EXECUTION (USING DETECTED FLOW FILES)
+  # STEP 2: 1 SITE PER RUNNER (PARALLEL EXECUTION)
   # ─────────────────────────────────────────────────────────────
-  funnel-tests:
-    name: 🚀 Checkout Funnel (${{ matrix.shard }})
-    needs: funnel-detect
+  site-runner:
+    name: 🧪 ${{ matrix.site.name }} (${{ matrix.site.flow }})
+    needs: setup-matrix
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     continue-on-error: true
     strategy:
       fail-fast: false
-      max-parallel: 10
+      max-parallel: 15
       matrix:
-        shard: ${{ fromJson(needs.funnel-detect.outputs.shards) }}
+        site: ${{ fromJson(needs.setup-matrix.outputs.sites_matrix) }}
 
     steps:
       - name: Checkout Code
@@ -227,46 +188,35 @@ jobs:
       - name: Pre-warm DNS Cache & Static Host Mappings
         run: node -e "require('./global-setup.js')()"
 
-      - name: Run Checkout Funnel Shard (${{ matrix.shard }})
+      - name: Run Funnel & Audits for ${{ matrix.site.name }}
         run: |
-          FILTER="${{ needs.funnel-detect.outputs.filter }}"
-          if [ "$FILTER" != "all" ] && [ -n "$FILTER" ]; then
-            SITE_NAME=$(node -e "
-              const sites = require('./sites.json');
-              const filter = '$FILTER';
-              const s = sites.find(x => x.id === filter || x.brand === filter || x.name.toLowerCase().includes(filter.toLowerCase()));
-              console.log(s ? s.name : filter);
-            ")
-            npx playwright test "streaming Task/global_streaming_specs.spec.js" --project="$SITE_NAME" --project="${SITE_NAME}_MobileChrome" --workers=2
-          else
-            npx playwright test "streaming Task/global_streaming_specs.spec.js" --shard=${{ matrix.shard }} --workers=2
-          fi
+          npx playwright test "${{ matrix.site.testFile }}" tests/pricing_page.spec.ts tests/session_ip_stickiness.spec.ts tests/ui_ux_verification.spec.ts --project="${{ matrix.site.name }}" --project="${{ matrix.site.name }}_MobileChrome" --workers=2
         env:
           CI: true
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - name: Upload Funnel Blob Reports
+      - name: Upload Blob Reports
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: all-blob-reports-funnel-${{ strategy.job-index }}
+          name: all-blob-reports-${{ matrix.site.id }}
           path: blob-report/
           retention-days: 2
 
-      - name: Upload Funnel Allure Results
+      - name: Upload Allure Results
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-results-funnel-${{ strategy.job-index }}
+          name: allure-results-${{ matrix.site.id }}
           path: allure-results/
           retention-days: 2
 
-      - name: Upload Raw Test Results & Failure Videos
+      - name: Upload Failure Videos & Test Results
         uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
-          name: test-results-funnel-${{ strategy.job-index }}
+          name: test-results-${{ matrix.site.id }}
           path: test-results/
           retention-days: 7
 
@@ -276,7 +226,7 @@ jobs:
   merge-reports:
     name: 📊 Consolidate Reports & Notify
     if: always()
-    needs: [standalone-audits, funnel-tests]
+    needs: [setup-matrix, site-runner]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
