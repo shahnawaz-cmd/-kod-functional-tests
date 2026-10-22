@@ -127,7 +127,7 @@ class VinErrorTask {
         await this.page.waitForTimeout(1500);
       }
     }
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     const isStreaming = await this.ensureStreamingFlow(testInfo);
     if (!isStreaming) return;
 
@@ -164,7 +164,7 @@ class VinErrorTask {
       timeout
     });
     console.log(`📍 [VinErrorTask] Landed on: ${this.page.url()}`);
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
     await this.page.waitForTimeout(1000);
 
     // 4. Verify Expected Error OR Gracefully Skip if VIN Decoded

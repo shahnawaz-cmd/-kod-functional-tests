@@ -175,8 +175,8 @@ class ErrorPageToHomeCollectionTask {
    */
   async execute(testInfo, timeout = TIMEOUT) {
     // 1. Initial Flow Detection
-    await this.page.goto('/');
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     const isStreaming = await this.ensureStreamingFlow(testInfo);
     if (!isStreaming) return;
 
@@ -203,8 +203,8 @@ class ErrorPageToHomeCollectionTask {
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       if (attempt > 1) {
         console.log(`\n🔄 [ErrorPageToHomeCollectionTask] Fallback attempt #${attempt}: Retrying with a new wrong VIN...`);
-        await this.page.goto('/');
-        await this.page.waitForLoadState('domcontentloaded');
+        await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+        await this.page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
       }
 
       alphabetVin = ErrorPageToHomeCollectionTask.generateAlphabetVin(17);
@@ -234,7 +234,7 @@ class ErrorPageToHomeCollectionTask {
         timeout: 30000
       }).catch(() => {});
       console.log(`📍 [ErrorPageToHomeCollectionTask] Landed on: ${this.page.url()}`);
-      await this.page.waitForLoadState('domcontentloaded');
+      await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
       await this.page.waitForTimeout(1500);
 
       // Verify expected error condition within 12 seconds

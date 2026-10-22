@@ -195,7 +195,7 @@ test('TC_08_Home_To_Checkout_Price_Coupon_And_Email_Cache_Validation', async ({ 
       await page.goto(fallbackUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     }
   }
-  await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
   await preview.verifySpecsVisible();
 
   // Verify email/session cookie persistence
