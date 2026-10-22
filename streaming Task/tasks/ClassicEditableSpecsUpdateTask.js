@@ -15,31 +15,36 @@ class ClassicEditableSpecsUpdateTask {
     const specs = REAL_CLASSIC_BODY_SPECS[Math.floor(Math.random() * REAL_CLASSIC_BODY_SPECS.length)];
 
     // ------------------------------------------------------------------
-    // Self-Healing Strategy 1: Check for Unmapped VIN prompt ("No Fix it")
+    // Self-Healing Strategy 1: Check for Unmapped VIN State (Dropdown Form or Prompt)
     // ------------------------------------------------------------------
-    const noFixBtn = this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i })
-      .or(this.page.locator('button:has-text("No"), button:has-text("Fix it")'))
-      .or(this.page.locator('div[class*="cursor-pointer"]:has-text("Fix it"), a:has-text("Fix it")')).first();
+    const { UnmappedYmmFallbackHandler } = require('./UnmappedYmmFallbackHandler');
+    const fallbackHandler = new UnmappedYmmFallbackHandler(this.page);
 
-    const isUnmappedPrompt = await noFixBtn.isVisible({ timeout: 4000 }).catch(() => false);
-    if (isUnmappedPrompt) {
-      console.log('⚠️ [ClassicEditableSpecsUpdateTask] VIN unmapped detected ("No Fix it" prompt on preview page). Gracefully skipping case...');
-      if (testInfo && typeof testInfo.skip === 'function') {
-        testInfo.skip(true, 'VIN unmapped');
-      } else {
-        const { test } = require('@playwright/test');
-        test.skip(true, 'VIN unmapped');
-      }
-      return null;
-    }
-
-    // 1. Self-Healing Click on "Click here to update"
     const updateButton = this.page.getByRole('button', { name: /Click here to update/i })
       .or(this.page.locator('button:has-text("Click here to update")'))
       .or(this.page.locator('button:has-text("Update")'))
       .or(this.page.locator('a:has-text("Click here to update")'))
       .or(this.page.locator('[data-testid*="update" i]')).first();
 
+    const unmappedIndicator = this.page.locator('text=/Confirm your vehicle|We couldn\'?t fully identify|Almost there|Select year|No, fix it/i')
+      .or(this.page.locator('input[placeholder*="year" i]')).first();
+
+    // Race between Update button and Unmapped prompt so detection is instant
+    await Promise.race([
+      updateButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {}),
+      unmappedIndicator.waitFor({ state: 'visible', timeout: 15000 }).catch(() => {})
+    ]);
+
+    const isUnmapped = await fallbackHandler.isUnmappedState();
+
+    if (isUnmapped) {
+      console.log('⚡ [ClassicEditableSpecsUpdateTask] Unmapped VIN detected on preview page.');
+      console.log('🔄 [ClassicEditableSpecsUpdateTask] Delegating to UnmappedYmmFallbackHandler for self-healing dropdown recovery...');
+      const recoveredSpecs = await fallbackHandler.handleUnmappedRecovery();
+      return recoveredSpecs;
+    }
+
+    // 1. Self-Healing Click on "Click here to update"
     await updateButton.waitFor({ state: 'visible', timeout });
     await updateButton.scrollIntoViewIfNeeded().catch(() => {});
     await updateButton.click({ force: true });

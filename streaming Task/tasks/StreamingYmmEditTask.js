@@ -23,44 +23,39 @@ class StreamingYmmEditTask {
     await this.page.waitForLoadState('domcontentloaded');
 
     // ------------------------------------------------------------------
-    // Self-Healing Strategy 1: Check for Unmapped VIN prompt ("No Fix it") or direct "Confirm your vehicle" dropdown form
+    // Self-Healing Strategy 1: Check for Unmapped VIN State (Dropdown Form or Prompt)
     // ------------------------------------------------------------------
-    const noFixBtn = this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i })
-      .or(this.page.locator('button:has-text("No"), button:has-text("Fix it")'))
-      .or(this.page.locator('div[class*="cursor-pointer"]:has-text("Fix it"), a:has-text("Fix it")')).first();
+    const { UnmappedYmmFallbackHandler } = require('./UnmappedYmmFallbackHandler');
+    const fallbackHandler = new UnmappedYmmFallbackHandler(this.page);
 
-    const isUnmappedPrompt = await noFixBtn.isVisible({ timeout: 3000 }).catch(() => false);
-    let isUnmappedFlow = false;
-
-    if (isUnmappedPrompt) {
-      console.log('⚡ [StreamingYmmEditTask] Unmapped VIN prompt detected ("No Fix it"). Clicking button...');
-      await noFixBtn.scrollIntoViewIfNeeded().catch(() => {});
-      await noFixBtn.click({ force: true });
-      await this.page.waitForTimeout(1000);
-      isUnmappedFlow = true;
-    } else {
-      // Check if page already shows the "Confirm your vehicle" dropdown form directly
-      const directForm = this.page.locator('input[placeholder="Select year"], textbox[name*="year" i], [placeholder*="year" i]').first();
-      const isDirectForm = await directForm.isVisible({ timeout: 2000 }).catch(() => false);
-
-      if (isDirectForm) {
-        console.log('⚡ [StreamingYmmEditTask] Direct "Confirm your vehicle" form detected on preview page.');
-        isUnmappedFlow = true;
-      } else {
-        // Self-Healing Strategy 2: Standard Mapped VIN flow ("Click here to update")
-        const updateButton = this.page.getByRole('button', { name: /Click here to update|update specs/i })
-          .or(this.page.locator('button:has-text("Click here to update")')).first();
-
-        await updateButton.waitFor({ state: 'visible', timeout });
-        await updateButton.click({ force: true });
-
-        const ymmTabButton = this.page.getByRole('button', { name: /Year, Make & Model/i })
-          .or(this.page.locator('button:has-text("Year, Make & Model")')).first();
-        await ymmTabButton.waitFor({ state: 'visible', timeout });
-        await ymmTabButton.click({ force: true });
-        await this.page.waitForTimeout(1000);
-      }
+    const isUnmapped = await fallbackHandler.isUnmappedState();
+    if (isUnmapped) {
+      console.log('⚡ [StreamingYmmEditTask] Unmapped VIN detected on preview page.');
+      console.log('🔄 [StreamingYmmEditTask] Delegating to UnmappedYmmFallbackHandler for self-healing dropdown recovery...');
+      const recovered = await fallbackHandler.handleUnmappedRecovery(preferredYear);
+      return {
+        year: recovered.year,
+        make: recovered.make,
+        model: recovered.model,
+        trim: recovered.trim,
+        isUnmappedFlow: true
+      };
     }
+
+    // ------------------------------------------------------------------
+    // Self-Healing Strategy 2: Standard Mapped VIN flow ("Click here to update")
+    // ------------------------------------------------------------------
+    const updateButton = this.page.getByRole('button', { name: /Click here to update|update specs/i })
+      .or(this.page.locator('button:has-text("Click here to update")')).first();
+
+    await updateButton.waitFor({ state: 'visible', timeout });
+    await updateButton.click({ force: true });
+
+    const ymmTabButton = this.page.getByRole('button', { name: /Year, Make & Model/i })
+      .or(this.page.locator('button:has-text("Year, Make & Model")')).first();
+    await ymmTabButton.waitFor({ state: 'visible', timeout });
+    await ymmTabButton.click({ force: true });
+    await this.page.waitForTimeout(1000);
 
     // ------------------------------------------------------------------
     // Select YMMT Dropdowns (Year -> Make -> Model -> Trim)
@@ -73,32 +68,27 @@ class StreamingYmmEditTask {
     console.log(`📋 [StreamingYmmEditTask] Selected Specs: Year=${year}, Make=${make}, Model=${model}, Trim=${trim}`);
 
     // ------------------------------------------------------------------
-    // Submit Records Based on Flow Type
+    // Submit Records for Mapped Flow: 2-step ("Continue" -> "Confirm & Get Records")
     // ------------------------------------------------------------------
-    if (isUnmappedFlow) {
-      // Unmapped Flow: Single-step "Get Records"
-      const getRecordsBtn = this.page.getByRole('button', { name: /Get Records|Confirm/i })
-        .or(this.page.locator('button:has-text("Get Records")')).first();
-      await getRecordsBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await getRecordsBtn.scrollIntoViewIfNeeded().catch(() => {});
-      await getRecordsBtn.click({ force: true });
-      console.log('✅ [StreamingYmmEditTask] Submitted unmapped specs via "Get Records".');
-    } else {
-      // Mapped Flow: 2-step ("Continue" -> "Confirm & Get Records")
-      const continueBtn = this.page.getByRole('button', { name: /^Continue$/i })
-        .or(this.page.locator('button:has-text("Continue")')).first();
-      await continueBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await continueBtn.scrollIntoViewIfNeeded().catch(() => {});
-      await continueBtn.click({ force: true });
-      await this.page.waitForTimeout(1000);
+    const continueBtn = this.page.getByRole('button', { name: /^Continue$/i })
+      .or(this.page.locator('button:has-text("Continue")')).first();
+    const confirmBtn = this.page.getByRole('button', { name: /Confirm & Get Records|Get Records/i })
+      .or(this.page.locator('button:has-text("Confirm & Get Records"), button:has-text("Get Records")')).first();
 
-      const confirmBtn = this.page.getByRole('button', { name: /Confirm & Get Records|Get Records/i })
-        .or(this.page.locator('button:has-text("Confirm & Get Records"), button:has-text("Get Records")')).first();
-      await confirmBtn.waitFor({ state: 'visible', timeout: 15000 });
-      await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
-      await confirmBtn.click({ force: true });
-      console.log('✅ [StreamingYmmEditTask] Submitted mapped specs via "Confirm & Get Records".');
+    // Self-healing: Retry clicking Continue if mobile touch/blur absorbed the first click
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (await confirmBtn.isVisible({ timeout: 1500 }).catch(() => false)) break;
+      if (await continueBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+        await continueBtn.scrollIntoViewIfNeeded().catch(() => {});
+        await continueBtn.click({ force: true }).catch(() => {});
+        await this.page.waitForTimeout(1000);
+      }
     }
+
+    await confirmBtn.waitFor({ state: 'visible', timeout: 15000 });
+    await confirmBtn.scrollIntoViewIfNeeded().catch(() => {});
+    await confirmBtn.click({ force: true });
+    console.log('✅ [StreamingYmmEditTask] Submitted mapped specs via "Confirm & Get Records".');
 
     // Wait for modal dialog to hide & DB sync safely
     if (!this.page.isClosed()) {
@@ -106,7 +96,7 @@ class StreamingYmmEditTask {
       await this.page.waitForTimeout(1500).catch(() => {});
     }
 
-    return { year, make, model, trim, isUnmappedFlow };
+    return { year, make, model, trim, isUnmappedFlow: false };
   }
 
   async selectOption(textboxName, preferredValue = null, timeout = TIMEOUT) {

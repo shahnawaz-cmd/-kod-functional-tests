@@ -236,11 +236,24 @@ jobs:
       - name: Prepare Combined GitHub Pages Deployment Directory
         if: always()
         run: |
+          # Clone existing gh-pages branch to preserve other workflows and historical runs
+          git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-deploy 2>/dev/null || mkdir -p gh-deploy
+          rm -rf gh-deploy/.git
+          touch gh-deploy/.nojekyll
+
+          # Deploy latest ip-lock report
           mkdir -p gh-deploy/ip-lock/playwright
           cp -r playwright-report-ip-lock/* gh-deploy/ip-lock/playwright/ 2>/dev/null || true
           rm -f gh-deploy/ip-lock/playwright/results.json
+
+          # Archive Run-Specific History (never overwritten)
+          RUN_DIR="gh-deploy/history/runs/${{ github.run_number }}/ip-lock"
+          mkdir -p "$RUN_DIR"
+          cp -r playwright-report-ip-lock/* "$RUN_DIR/" 2>/dev/null || true
+
           if [ -d "allure-report-out" ]; then
-            cp -r allure-report-out/* gh-deploy/ip-lock/
+            mkdir -p gh-deploy/ip-lock/allure
+            cp -r allure-report-out/* gh-deploy/ip-lock/allure/ 2>/dev/null || true
           fi
           find gh-deploy -type f -name '*.zip' -size +10M -delete
           find gh-deploy -type f -size +20M -delete
@@ -249,7 +262,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-ip-lock
+          name: playwright-report-ip-lock-run-${{ github.run_number }}-${{ github.run_attempt }}
           path: playwright-report-ip-lock/
           retention-days: 30
 
@@ -257,7 +270,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-report-ip-lock
+          name: allure-report-ip-lock-run-${{ github.run_number }}-${{ github.run_attempt }}
           path: allure-report-out/
           retention-days: 30
 

@@ -1,4 +1,4 @@
-name: Window Sticker - Orchestrator E2E Suite
+name: Window Sticker - Desktop Orchestrator E2E Suite
 
 permissions:
   contents: write
@@ -111,7 +111,6 @@ jobs:
         site: ${{ fromJson(needs.setup.outputs.matrix) }}
         browser:
           - Desktop
-          - MobileChrome
 
     steps:
       - name: Checkout Code
@@ -204,24 +203,6 @@ jobs:
           path: test-results/
           retention-days: 7
 
-      - name: Send Instant Slack Failure Alert for ${{ matrix.site.name }} Funnel (${{ matrix.browser }})
-        if: steps.playwright-run.outcome == 'failure'
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GITHUB_SERVER: ${{ github.server_url }}
-          GITHUB_REPO: ${{ github.repository }}
-          GITHUB_RUN: ${{ github.run_id }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          GITHUB_REF: ${{ github.ref_name }}
-          GITHUB_SHA_VAL: ${{ github.sha }}
-          GITHUB_EVENT: ${{ github.event_name }}
-          SITE_NAME: ${{ matrix.site.name }}
-          SITE_URL: ${{ matrix.site.url }}
-          BROWSER_NAME: ${{ matrix.browser }}
-          SUITE_TYPE: 'Checkout Funnel'
-          RUN_STATUS: ${{ steps.playwright-run.outcome }}
-        run: |
-          node scripts/slack-notify.js --site-mode --failures-only
 
   # ─────────────────────────────────────────────────────────────
   # STEP 3: CONSOLIDATE & REPORT (BLOB + ALLURE + NOTIFICATIONS)
@@ -286,16 +267,28 @@ jobs:
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_EVENT: ${{ github.event_name }}
           SITE_FILTER: ${{ github.event.inputs.site_filter || 'all' }}
-          SUITE_TYPE: 'Checkout Funnel Suite'
+          SUITE_TYPE: 'Desktop Checkout Funnel Suite'
         run: |
           node scripts/slack-notify.js
 
       - name: Prepare Combined GitHub Pages Deployment Directory
         if: always()
         run: |
+          # Clone existing gh-pages branch to preserve other workflows and historical runs
+          git clone --depth 1 --branch gh-pages "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-deploy 2>/dev/null || mkdir -p gh-deploy
+          rm -rf gh-deploy/.git
+          touch gh-deploy/.nojekyll
+
+          # Deploy latest Desktop report
           mkdir -p gh-deploy/playwright
           cp -r playwright-report/* gh-deploy/playwright/ 2>/dev/null || true
           rm -f gh-deploy/playwright/results.json
+
+          # Archive Run-Specific History (never overwritten)
+          RUN_DIR="gh-deploy/history/runs/${{ github.run_number }}/desktop"
+          mkdir -p "$RUN_DIR"
+          cp -r playwright-report/* "$RUN_DIR/" 2>/dev/null || true
+
           if [ -d "allure-report-out" ]; then
             cp -r allure-report-out/* gh-deploy/
           fi
@@ -316,7 +309,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-orchestrator
+          name: playwright-report-orchestrator-run-${{ github.run_number }}-${{ github.run_attempt }}
           path: playwright-report/
           retention-days: 30
 
@@ -324,7 +317,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: allure-report-orchestrator
+          name: allure-report-orchestrator-run-${{ github.run_number }}-${{ github.run_attempt }}
           path: allure-report-out/
           retention-days: 30
 

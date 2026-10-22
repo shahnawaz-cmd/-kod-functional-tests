@@ -1,4 +1,5 @@
 const { ClassicEditableSpecsUpdateTask } = require('../tasks/ClassicEditableSpecsUpdateTask');
+const { generateUniqueEmail } = require('../../utils/emailGenerator');
 const { expect } = require('@playwright/test');
 const TIMEOUT = process.env.CI ? 90000 : 60000;
 
@@ -186,6 +187,10 @@ class PreviewPage {
       .or(this.page.locator('.vehicle-specs, .specs-container, [data-testid="specs"]'))
       .or(this.page.locator('button:has-text("Access Records"), button:has-text("Reveal Records")'))
       .or(this.page.locator("text=What's your goal"))
+      .or(this.page.locator('text=Confirm your vehicle'))
+      .or(this.page.locator("text=We couldn't fully identify"))
+      .or(this.page.locator('text=Almost there'))
+      .or(this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i }))
       .or(this.accessRecordButton);
 
     await successLocator.first().waitFor({ state: 'visible', timeout: timeout }).catch(() => {});
@@ -447,50 +452,126 @@ class PreviewPage {
     return await task.execute(this, timeout);
   }
 
+  async diagnoseCheckoutNavigationFailure(error, startTime = Date.now()) {
+    const elapsed = Date.now() - startTime;
+    const currentUrl = this.page.url();
+
+    // 1. Inspect email modal state
+    const modal = this.page.locator('div[role="dialog"], .modal, div[class*="modal" i]').first();
+    const isModalOpen = await modal.isVisible({ timeout: 1000 }).catch(() => false);
+
+    // 2. Inspect validation errors in modal / DOM
+    let validationErrors = [];
+    if (isModalOpen) {
+      const errorElements = modal.locator('[role="alert"], .error, [class*="error" i], [class*="invalid" i], p.text-red-500, span.text-danger');
+      const errCount = await errorElements.count().catch(() => 0);
+      for (let i = 0; i < Math.min(errCount, 5); i++) {
+        const text = (await errorElements.nth(i).innerText().catch(() => '')).trim();
+        if (text && !validationErrors.includes(text)) {
+          validationErrors.push(text);
+        }
+      }
+
+      // Check HTML5 input constraints
+      const emailInput = modal.locator('input[type="email"]').first();
+      const phoneInput = modal.locator('input[type="tel"]').first();
+      const emailValMsg = await emailInput.evaluate(el => el.validationMessage).catch(() => '');
+      const phoneValMsg = await phoneInput.evaluate(el => el.validationMessage).catch(() => '');
+      if (emailValMsg) validationErrors.push(`Email Input: "${emailValMsg}"`);
+      if (phoneValMsg) validationErrors.push(`Phone Input: "${phoneValMsg}"`);
+    }
+
+    // 3. Inspect proceed button state
+    const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i })
+      .or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
+    let buttonState = 'Not Found';
+    if (await proceedBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+      const isDisabled = await proceedBtn.isDisabled().catch(() => false);
+      const isBusy = await proceedBtn.getAttribute('aria-busy').catch(() => null);
+      const btnText = (await proceedBtn.innerText().catch(() => '')).trim();
+      buttonState = `${isDisabled ? 'DISABLED' : 'ENABLED'} | Text: "${btnText}"${isBusy ? ' | Busy: true' : ''}`;
+    }
+
+    // 4. Formatted STDOUT Diagnostic Box
+    const diagBanner = [
+      '',
+      '================================================================================',
+      '🚨 [CHECKOUT NAVIGATION FAILED] Preview -> Checkout transition stalled or timed out!',
+      '================================================================================',
+      `⏱️  Elapsed Time:      ${elapsed}ms`,
+      `📍 Current Page URL:  ${currentUrl}`,
+      `🚪 Email Modal State:  ${isModalOpen ? 'STILL OPEN (Form may have failed submission)' : 'CLOSED / HIDDEN'}`,
+      `🔘 Proceed Button:     ${buttonState}`,
+      `⚠️ Validation Errors:  ${validationErrors.length > 0 ? validationErrors.join(' | ') : 'None detected in DOM'}`,
+      `📌 Original Error:     ${error.message}`,
+      '================================================================================',
+      ''
+    ].join('\n');
+
+    console.error(diagBanner);
+
+    // Throw informative error for Playwright reports
+    throw new Error(
+      `Preview-to-Checkout Navigation Failed after ${elapsed}ms!\n` +
+      `URL: ${currentUrl}\n` +
+      `Modal Open: ${isModalOpen}\n` +
+      `Button State: ${buttonState}\n` +
+      `Errors: ${validationErrors.length > 0 ? validationErrors.join('; ') : 'No inline errors found'}\n` +
+      `Cause: ${error.message}`
+    );
+  }
+
   async runCheckoutFlow() {
+    const startTime = Date.now();
+    console.log('\n--- [CHECKOUT NAVIGATION FLOW] Initiating Preview -> Checkout ---');
+
     // 1. Click Access Record
+    console.log('🔘 [Step 1/3] Clicking "Access Record" button...');
     await this.clickAccessRecordButton();
 
     // 2. Wait for email popup and fill details
     const emailInput = this.page.locator('input[type="email"]').first();
     const phoneInput = this.page.locator('input[type="tel"]').first();
-    
+
     await emailInput.waitFor({ state: 'visible', timeout: TIMEOUT });
-    
-    await emailInput.fill(PreviewPage.generateUniqueEmail());
-    await phoneInput.fill(PreviewPage.generateUsPhoneNumber());
-    
-    // 3. Click Proceed to checkout and wait for the navigation together (domcontentloaded)
-    const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i }).or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
+
+    const generatedEmail = PreviewPage.generateUniqueEmail();
+    const generatedPhone = PreviewPage.generateUsPhoneNumber();
+    console.log(`📝 [Step 2/3] Email modal visible. Entering credentials:`);
+    console.log(`   ├─ Email: ${generatedEmail}`);
+    console.log(`   └─ Phone: ${generatedPhone}`);
+
+    await emailInput.fill(generatedEmail);
+    await phoneInput.fill(generatedPhone);
+
+    // 3. Click Proceed to checkout and wait for navigation
+    const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i })
+      .or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
     await proceedBtn.waitFor({ state: 'visible', timeout: 15000 });
     await proceedBtn.scrollIntoViewIfNeeded().catch(() => {});
 
-    await Promise.all([
-      this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
-      proceedBtn.click({ timeout: 15000 }).catch(async () => {
-        // Fallback force click if animations or overlay intercepted
-        await proceedBtn.click({ force: true }).catch(() => {});
-      }),
-    ]);
+    console.log('🚀 [Step 3/3] Clicking "Proceed to Checkout" and awaiting URL transition...');
+
+    try {
+      await Promise.all([
+        this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+        proceedBtn.click({ timeout: 15000 }).catch(async () => {
+          // Fallback force click if animations or overlay intercepted
+          await proceedBtn.click({ force: true }).catch(() => {});
+        }),
+      ]);
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ [Navigation Success] Transitioned to Checkout in ${duration}ms!`);
+      console.log(`   └─ Landed on: ${this.page.url()}\n`);
+    } catch (navError) {
+      await this.diagnoseCheckoutNavigationFailure(navError, startTime);
+    }
   }
 
-  // Helper: Generate a unique email with short 2-digit suffix
-  static generateUniqueEmail() {
-    const primaryEmails = [
-      'indus.shahnawaz1460@gmail.com',
-      'techworms134@gmail.com',
-      'h.m.shahnawaz123@gmail.com',
-      'hommy.stress123@gmail.com',
-      'working.with56@gmail.com'
-    ];
-    
-    // Pick a random primary email from the list
-    const chosenEmail = primaryEmails[Math.floor(Math.random() * primaryEmails.length)];
-    const [localPart, domainPart] = chosenEmail.split('@');
-    
-    // Short 2-digit random suffix (e.g. +42) to keep email short and fully visible
-    const shortSuffix = Math.floor(Math.random() * 90 + 10);
-    return `${localPart}+${shortSuffix}@${domainPart}`;
+  // Helper: Generate a unique email with short 2-digit suffix using centralized generator
+  static generateUniqueEmail(baseEmail = 'shahnawaz@empirepixel.com') {
+    return generateUniqueEmail(baseEmail);
   }
 
   // Helper: Generate a valid US phone number (XXX) XXX-XXXX
@@ -625,8 +706,12 @@ class EmailCache {
     console.log("✅ Landed on checkout page (1st time)");
 
     // 2. Go back
-    await this.page.goBack();
-    await this.page.waitForLoadState('load');
+    try {
+      await this.page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 });
+    } catch {
+      await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    }
+    await this.page.waitForLoadState('domcontentloaded');
     console.log("✅ Navigated back to Preview page");
 
     // 3. Select new plan

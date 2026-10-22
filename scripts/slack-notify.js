@@ -143,7 +143,7 @@ const sectionText = isSiteMode
   : [
       `*Overall Status:* ${isPassing ? `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : `All ${siteCount} Domains Passing (Funnel & Audits)`}` : `🔴 *${failedTests} Failure(s) Detected*`}`,
       `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`,
-      `*Target Scope:* 🚗 *${isFilteredSingleSite ? `Single Domain Dispatch: ${siteFilter}` : `${siteCount} Live Brands Tested`}* (Desktop & Mobile Chrome)`,
+      `*Target Scope:* 🚗 *${isFilteredSingleSite ? `Single Domain Dispatch: ${siteFilter}` : `${siteCount} Live Brands Tested`}* (${suiteType})`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n');
 

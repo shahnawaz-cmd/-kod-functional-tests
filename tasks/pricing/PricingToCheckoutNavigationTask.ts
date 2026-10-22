@@ -8,17 +8,17 @@ import {
   locateElementWithHealing,
   locateInputWithHealing
 } from '../../utils/selfHealingLocator';
+import { generateUniqueEmail } from '../../utils/emailGenerator';
+const { attachMockCheckoutRoute } = require('../../streaming Task/helpers/mockCheckout');
 
 export type PricingPlanType = 'report' | 'sticker' | 'any';
 
 /**
  * Self-healing Email Generator
- * Always derives unique emails from the base email alias (e.g. rolex.rolls12+<unique>@gmail.com).
+ * Always derives unique emails from the base email alias (shahnawaz+<2-digits>@empirepixel.com).
  */
-export function generateEmail(baseEmail: string = 'rolex.rolls12@gmail.com'): string {
-  const [username, domain] = baseEmail.split('@');
-  const uniqueSuffix = Math.random().toString(36).substring(2, 6) + Date.now().toString(36).slice(-3);
-  return `${username}+${uniqueSuffix}@${domain || 'gmail.com'}`;
+export function generateEmail(baseEmail: string = 'shahnawaz@empirepixel.com'): string {
+  return generateUniqueEmail(baseEmail);
 }
 
 export class PricingToCheckoutNavigationTask {
@@ -26,7 +26,7 @@ export class PricingToCheckoutNavigationTask {
   private baseEmail: string;
   private timeout: number;
 
-  constructor(planType: PricingPlanType = 'any', baseEmail: string = 'rolex.rolls12@gmail.com') {
+  constructor(planType: PricingPlanType = 'any', baseEmail: string = 'shahnawaz@empirepixel.com') {
     this.planType = planType;
     this.baseEmail = baseEmail;
     this.timeout = process.env.CI ? 60000 : 45000;
@@ -34,6 +34,7 @@ export class PricingToCheckoutNavigationTask {
 
   async performAs(actorOrPage: any, testInfo?: TestInfo): Promise<string> {
     const page: Page = typeof actorOrPage.getPage === 'function' ? actorOrPage.getPage() : actorOrPage;
+    await attachMockCheckoutRoute(page);
     let checkoutUrl = '';
     const generatedEmail = generateEmail(this.baseEmail);
 

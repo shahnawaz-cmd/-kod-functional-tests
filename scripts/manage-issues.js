@@ -33,7 +33,8 @@ async function manageGitHubIssues() {
   let passedCount = 0;
   let failedCount = 0;
 
-  const resultPaths = ['playwright-report/results.json', 'results.json'];
+  const reportDir = process.env.PLAYWRIGHT_REPORT_DIR || 'playwright-report';
+  const resultPaths = [`${reportDir}/results.json`, 'playwright-report/results.json', 'results.json'];
   let resultsData = null;
 
   for (const p of resultPaths) {

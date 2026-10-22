@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node scripts/run-flow.js",
     "test:flow": "node scripts/run-flow.js",
+    "test:mobile": "node scripts/run-flow.js --project=ToyotaWindowSticker_MobileChrome",
     "test:streaming": "npx playwright test \"streaming Task/global_streaming_specs.spec.js\"",
     "test:non-streaming": "npx playwright test tests/global_case_verification.spec.ts",
     "test:pricing": "npx playwright test tests/pricing_page.spec.ts",
