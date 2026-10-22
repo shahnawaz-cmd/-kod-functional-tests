@@ -23,13 +23,13 @@ class StreamingYmmEditTask {
     await this.page.waitForLoadState('domcontentloaded');
 
     // ------------------------------------------------------------------
-    // Self-Healing Strategy 1: Check for Unmapped VIN prompt ("No Fix it")
+    // Self-Healing Strategy 1: Check for Unmapped VIN prompt ("No Fix it") or direct "Confirm your vehicle" dropdown form
     // ------------------------------------------------------------------
     const noFixBtn = this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i })
       .or(this.page.locator('button:has-text("No"), button:has-text("Fix it")'))
       .or(this.page.locator('div[class*="cursor-pointer"]:has-text("Fix it"), a:has-text("Fix it")')).first();
 
-    const isUnmappedPrompt = await noFixBtn.isVisible({ timeout: 4000 }).catch(() => false);
+    const isUnmappedPrompt = await noFixBtn.isVisible({ timeout: 3000 }).catch(() => false);
     let isUnmappedFlow = false;
 
     if (isUnmappedPrompt) {
@@ -39,18 +39,27 @@ class StreamingYmmEditTask {
       await this.page.waitForTimeout(1000);
       isUnmappedFlow = true;
     } else {
-      // Self-Healing Strategy 2: Standard Mapped VIN flow ("Click here to update")
-      const updateButton = this.page.getByRole('button', { name: /Click here to update|update specs/i })
-        .or(this.page.locator('button:has-text("Click here to update")')).first();
+      // Check if page already shows the "Confirm your vehicle" dropdown form directly
+      const directForm = this.page.locator('input[placeholder="Select year"], textbox[name*="year" i], [placeholder*="year" i]').first();
+      const isDirectForm = await directForm.isVisible({ timeout: 2000 }).catch(() => false);
 
-      await updateButton.waitFor({ state: 'visible', timeout });
-      await updateButton.click({ force: true });
+      if (isDirectForm) {
+        console.log('⚡ [StreamingYmmEditTask] Direct "Confirm your vehicle" form detected on preview page.');
+        isUnmappedFlow = true;
+      } else {
+        // Self-Healing Strategy 2: Standard Mapped VIN flow ("Click here to update")
+        const updateButton = this.page.getByRole('button', { name: /Click here to update|update specs/i })
+          .or(this.page.locator('button:has-text("Click here to update")')).first();
 
-      const ymmTabButton = this.page.getByRole('button', { name: /Year, Make & Model/i })
-        .or(this.page.locator('button:has-text("Year, Make & Model")')).first();
-      await ymmTabButton.waitFor({ state: 'visible', timeout });
-      await ymmTabButton.click({ force: true });
-      await this.page.waitForTimeout(1000);
+        await updateButton.waitFor({ state: 'visible', timeout });
+        await updateButton.click({ force: true });
+
+        const ymmTabButton = this.page.getByRole('button', { name: /Year, Make & Model/i })
+          .or(this.page.locator('button:has-text("Year, Make & Model")')).first();
+        await ymmTabButton.waitFor({ state: 'visible', timeout });
+        await ymmTabButton.click({ force: true });
+        await this.page.waitForTimeout(1000);
+      }
     }
 
     // ------------------------------------------------------------------

@@ -101,14 +101,24 @@ class PlateErrorTask {
 
     for (let i = 0; i < strategies.length; i++) {
       try {
-        const loc = strategies[i]().locator('visible=true').first();
-        if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
-          return loc;
+        const loc = strategies[i]();
+        const count = await loc.count().catch(() => 0);
+        for (let j = 0; j < count; j++) {
+          const candidate = loc.nth(j);
+          if (await candidate.isVisible().catch(() => false)) {
+            return candidate;
+          }
         }
       } catch (e) {}
     }
 
-    return strategies[1]().first();
+    // Fallback: look for any visible text input inside the active search panel or on page
+    const visibleFallback = this.page.locator('.hero-search-panel:not([aria-hidden="true"]) input, form input[type="text"]:visible').first();
+    if (await visibleFallback.isVisible({ timeout: 1500 }).catch(() => false)) {
+      return visibleFallback;
+    }
+
+    return this.page.locator('input[name*="plate" i]:visible, input[placeholder*="plate" i]:visible').first();
   }
 
   /**
@@ -264,10 +274,10 @@ class PlateErrorTask {
       return;
     }
 
-    // Expected Error Locator (matches VIN error & Plate error patterns)
+    // Expected Error Locator (matches VIN error, Plate error, and unmapped Plate confirm prompt patterns)
     const errorLocator = this.page.locator('h1, h2, h3, p, div, span, [role="alert"]')
       .filter({
-        hasText: /We couldn'?t find a vehicle for that (license plate|plate|VIN)|Sorry\s*[-—–]\s*no record found/i
+        hasText: /We couldn'?t find a vehicle for that (license plate|plate|VIN)|Sorry\s*[-—–]\s*no record found|We couldn'?t fully identify|Confirm your vehicle/i
       })
       .first();
 

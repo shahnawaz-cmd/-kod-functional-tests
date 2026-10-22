@@ -46,19 +46,44 @@ function runFlow() {
     process.env.BASE_URL = targetUrl;
   }
 
-  try {
-    const detectScriptPath = path.join(__dirname, 'detect-flow.js');
-    const detectCmd = targetUrl ? `node "${detectScriptPath}" "${targetUrl}"` : `node "${detectScriptPath}"`;
-    const output = execSync(detectCmd, { encoding: 'utf8' });
-    console.log(output);
-    if (output.includes('Detected Checkout Flow : non_streaming')) {
-      flowType = 'non_streaming';
-    } else if (output.includes('Detected Checkout Flow : streaming')) {
-      flowType = 'streaming';
+  if (process.env.FLOW_TYPE) {
+    flowType = process.env.FLOW_TYPE;
+    console.log(`⚡ [Pre-detected Flow via ENV]: ${flowType}`);
+  } else {
+    let foundInCache = false;
+    try {
+      const flowFilePath = path.join(__dirname, '..', 'flow-detection.json');
+      const fs = require('fs');
+      if (fs.existsSync(flowFilePath)) {
+        const flowMap = JSON.parse(fs.readFileSync(flowFilePath, 'utf8'));
+        if (projectName) {
+          const baseBrand = projectName.split('_')[0];
+          const matched = Object.keys(flowMap).find(k => k.toLowerCase() === baseBrand.toLowerCase());
+          if (matched && flowMap[matched]) {
+            flowType = flowMap[matched];
+            foundInCache = true;
+            console.log(`⚡ [Pre-detected Flow via flow-detection.json for ${projectName}]: ${flowType}`);
+          }
+        }
+      }
+    } catch (e) {}
+
+    if (!foundInCache) {
+      try {
+        const detectScriptPath = path.join(__dirname, 'detect-flow.js');
+        const detectCmd = targetUrl ? `node "${detectScriptPath}" "${targetUrl}"` : `node "${detectScriptPath}"`;
+        const output = execSync(detectCmd, { encoding: 'utf8' });
+        console.log(output);
+        if (output.includes('Detected Checkout Flow : non_streaming')) {
+          flowType = 'non_streaming';
+        } else if (output.includes('Detected Checkout Flow : streaming')) {
+          flowType = 'streaming';
+        }
+      } catch (e) {
+        console.error('❌ Flow Detection Failed. Stopping execution.');
+        process.exit(1);
+      }
     }
-  } catch (e) {
-    console.error('❌ Flow Detection Failed. Stopping execution.');
-    process.exit(1);
   }
 
   const isWin = process.platform === 'win32';

@@ -37,6 +37,40 @@ async function detectSingleDomain(name, url, browserInstance = null) {
   let shouldCloseBrowser = false;
   let dnsRules = await getDnsRules();
 
+  // Fast HTTP pre-check: Most sites bootstrap checkout_flow in raw HTML script/cookies
+  try {
+    const httpFlow = await new Promise((resolve) => {
+      const client = url.startsWith('https') ? require('https') : require('http');
+      const req = client.get(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+        timeout: 4000
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => {
+          body += chunk;
+          if (body.includes('checkout_flow=non_streaming')) {
+            req.destroy();
+            resolve('non_streaming');
+          } else if (body.includes('checkout_flow=streaming')) {
+            req.destroy();
+            resolve('streaming');
+          }
+        });
+        res.on('end', () => {
+          if (body.includes('checkout_flow=non_streaming')) resolve('non_streaming');
+          else if (body.includes('checkout_flow=streaming')) resolve('streaming');
+          else resolve(null);
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
+    });
+
+    if (httpFlow) {
+      return { name, url, flowType: httpFlow, error: null };
+    }
+  } catch (e) {}
+
   if (!browser) {
     browser = await chromium.launch({
       headless: true,
