@@ -36,106 +36,9 @@ export class ClassicEditableFeatureYMM {
   private timeout = process.env.CI ? 60000 : 90000;
 
   async run(page: Page) {
-    // 1. Locate and click "Click here to update" with hydration wait & multi-tag fallback
-    const updateTrigger = page.locator('button, a, [role="button"], span')
-      .filter({ hasText: /(click here to update|update vehicle|edit specs)/i })
-      .first();
-
-    await updateTrigger.waitFor({ state: 'visible', timeout: this.timeout });
-    await page.waitForTimeout(1000); // Allow React hydration to complete
-    await updateTrigger.scrollIntoViewIfNeeded().catch(() => {});
-    await updateTrigger.click({ force: true }).catch(async () => {
-      await updateTrigger.evaluate((el: HTMLElement) => el.click()).catch(() => {});
-    });
-
-    // 2. Wait for modal animation and click "Year, Make & Model"
-    const ymmButton = page.locator('button, a, [role="button"]')
-      .filter({ hasText: /(update year, make|year, make & model|year, make and model)/i })
-      .first();
-
-    await ymmButton.waitFor({ state: 'visible', timeout: this.timeout });
-    await page.waitForTimeout(500); // Modal transition delay
-    await ymmButton.scrollIntoViewIfNeeded().catch(() => {});
-    await ymmButton.click({ force: true }).catch(async () => {
-      await ymmButton.evaluate((el: HTMLElement) => el.click()).catch(() => {});
-    });
-
-    // Targeted wait for year input
-    const yearBox = page.getByRole('textbox', { name: /year/i })
-      .or(page.getByPlaceholder(/year/i))
-      .or(page.getByLabel(/year/i))
-      .or(page.locator('input[placeholder*="year" i], [aria-label*="year" i]'))
-      .first();
-    await yearBox.waitFor({ state: 'visible', timeout: this.timeout });
-
-    // 1. Select Year
-    await yearBox.click({ force: true });
-    await page.waitForTimeout(300);
-
-    const yearOption = page.getByRole('button', { name: '1923' }).first()
-      .or(page.getByRole('option', { name: '1923' }).first())
-      .or(page.locator('[role="option"], ul li').filter({ hasText: /\d{4}/ }).first().locator('visible=true'));
-    await yearOption.waitFor({ state: 'visible', timeout: 15000 });
-    await yearOption.click({ force: true });
-
-    // 2. Select Make
-    const makeBox = page.getByRole('textbox', { name: /make/i })
-      .or(page.getByPlaceholder(/make/i))
-      .or(page.getByLabel(/make/i))
-      .or(page.locator('input[placeholder*="make" i], [aria-label*="make" i]'))
-      .first();
-    await makeBox.waitFor({ state: 'visible', timeout: this.timeout });
-    await makeBox.click({ force: true });
-    await page.waitForTimeout(300);
-
-    const ambassadorMake = page.getByRole('button', { name: 'Ambassador' }).first()
-      .or(page.getByRole('option', { name: 'Ambassador' }).first())
-      .or(page.locator('div[role="dialog"] div[class*="max-h-64"] button, div[role="dialog"] [role="option"]').first());
-    await ambassadorMake.waitFor({ state: 'visible', timeout: 15000 });
-    await ambassadorMake.click({ force: true });
-
-    // 3. Select Model
-    const modelBox = page.getByRole('textbox', { name: /model/i })
-      .or(page.getByPlaceholder(/model/i))
-      .or(page.getByLabel(/model/i))
-      .or(page.locator('input[placeholder*="model" i], [aria-label*="model" i]'))
-      .first();
-    await modelBox.waitFor({ state: 'visible', timeout: this.timeout });
-    await modelBox.click({ force: true });
-    await page.waitForTimeout(300);
-
-    const rModel = page.getByRole('button', { name: 'R', exact: true }).first()
-      .or(page.getByRole('option', { name: 'R', exact: true }).first())
-      .or(page.locator('div[role="dialog"] div[class*="max-h-64"] button, div[role="dialog"] [role="option"]').first());
-    await rModel.waitFor({ state: 'visible', timeout: 15000 });
-    await rModel.click({ force: true });
-
-    // 4. Select Trim
-    const trimBox = page.getByRole('textbox', { name: /trim/i })
-      .or(page.getByPlaceholder(/trim/i))
-      .or(page.getByLabel(/trim/i))
-      .or(page.locator('input[placeholder*="trim" i], [aria-label*="trim" i]'))
-      .first();
-    await trimBox.waitFor({ state: 'visible', timeout: this.timeout });
-    await trimBox.click({ force: true });
-    await page.waitForTimeout(300);
-
-    const touringTrim = page.getByRole('button', { name: 'Touring' }).first()
-      .or(page.getByRole('option', { name: 'Touring' }).first())
-      .or(page.locator('div[role="dialog"] div[class*="max-h-64"] button, div[role="dialog"] [role="option"]').first());
-    await touringTrim.waitFor({ state: 'visible', timeout: 15000 });
-    await touringTrim.click({ force: true });
-
-    // 5. Submit changes
-    const continueButton = page.getByRole('button', { name: 'Continue' });
-    await continueButton.waitFor({ state: 'visible', timeout: 10000 });
-    await continueButton.click({ force: true });
-
-    const confirmButton = page.getByRole('button', { name: 'Confirm & Get Records' })
-      .or(page.locator('button:has-text("Confirm")'))
-      .or(page.locator('button:has-text("Submit")'));
-    await confirmButton.first().waitFor({ state: 'visible', timeout: 10000 });
-    await confirmButton.first().click({ force: true });
+    const { StreamingYmmEditTask } = require('../streaming Task/tasks/StreamingYmmEditTask');
+    const task = new StreamingYmmEditTask(page);
+    await task.execute({ timeout: this.timeout });
   }
 }
 
@@ -282,7 +185,7 @@ export class ClassicEditableSpecs {
     const page = actor.getPage();
     await page.context().clearCookies();
     await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     const cookies = await page.context().cookies();
     const isStreaming = cookies.some((c) => c.name === 'checkout_flow' && c.value === 'streaming');
@@ -340,10 +243,21 @@ export class ClassicEditableSpecs {
       }
     });
 
-    if (isStreaming) {
+    const previewCookies = await page.context().cookies();
+    const isStreamingFlow = previewCookies.some((c) => c.name === 'checkout_flow' && c.value === 'streaming') ||
+      page.url().includes('ws-preview') ||
+      page.url().includes('preview');
+
+    // On modern and streaming projects, run the resilient StreamingYmmEditTask
+    try {
       await new ClassicEditableFeatureYMM().run(page);
-    } else {
-      await new Case5VerifyClassicEditableFeature().runDropdownUpdate(page);
+    } catch (err) {
+      if (!isStreamingFlow) {
+        console.log(`⚠️ Modern YMM task failed, attempting legacy dropdown update fallback: ${err.message}`);
+        await new Case5VerifyClassicEditableFeature().runDropdownUpdate(page);
+      } else {
+        throw err;
+      }
     }
   }
 }

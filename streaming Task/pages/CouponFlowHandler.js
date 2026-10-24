@@ -38,9 +38,15 @@ class CouponFlowHandler {
     await emailInput.fill(PreviewPage.generateUniqueEmail());
     await phoneInput.fill(PreviewPage.generateUsPhoneNumber());
     
+    const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i })
+      .or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
+    await proceedBtn.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});
+
     await Promise.all([
       this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { timeout: TIMEOUT }),
-      this.page.getByRole('button', { name: /proceed to checkout/i }).click(),
+      proceedBtn.click({ force: true, timeout: 5000 }).catch(async () => {
+        await proceedBtn.evaluate(b => b.click()).catch(() => {});
+      }),
     ]);
   }
 
@@ -407,7 +413,7 @@ class CouponBannerHandler {
     }
 
     // 2. Smart wait: Wait for client-side Next.js hydration or network activity to settle
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // 3. Smart wait for Banner visibility
     const { isVisible: bannerFound, text: bannerText } = await this.waitForBannerElement(12000);
@@ -446,7 +452,7 @@ class CouponBannerHandler {
         await this.page.waitForTimeout(1500);
       }
     }
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // Smart wait for banner element
     const { isVisible: isHighVisible, text: highBannerText } = await this.waitForBannerElement(12000);
@@ -464,7 +470,7 @@ class CouponBannerHandler {
     // 3. Persistence across sub-pages (/vin-decoder) with smart DOM + Cookie wait
     const stickerPath = '/vin-decoder';
     await this.page.goto(stickerPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // Smart wait for persisted banner or cookie persistence
     const { isVisible: isPersistedVisible } = await this.waitForBannerElement(10000);

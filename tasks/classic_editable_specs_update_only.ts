@@ -82,12 +82,18 @@ export class ClassicEditableSpecsUpdateOnly {
 
     // 2. Wait for Preview page
     await page.waitForURL(/.*(preview|sticker|license-preview|ws-preview).*/, { timeout: 60000 });
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // Dismiss any blocking popups (e.g. Access Records or Exit Intent) if present
     const closeOverlayBtn = page.locator('button[aria-label="Close"], button:has-text("✕"), [role="dialog"] button:has-text("Close"), .modal-close').first();
     if (await closeOverlayBtn.isVisible({ timeout: 2500 }).catch(() => false)) {
       await closeOverlayBtn.click({ force: true }).catch(() => {});
+    }
+
+    // Wait for streaming skeleton to resolve if present
+    const skeleton = page.locator('.animate-pulse, [class*="skeleton"], [class*="shimmer"], [aria-busy="true"]').first();
+    if (await skeleton.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await skeleton.waitFor({ state: 'detached', timeout: 30000 }).catch(() => {});
     }
 
     // 3. Click 'Click here to update' with resilient locator

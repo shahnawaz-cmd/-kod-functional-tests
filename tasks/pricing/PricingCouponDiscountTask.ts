@@ -45,7 +45,7 @@ export class PricingCouponDiscountTask {
         }
       }
 
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     });
 
     await test.step(`Step 2: Verify Coupon Banner Appears on Pricing Page (${discountStr} Discount)`, async () => {
@@ -61,7 +61,7 @@ export class PricingCouponDiscountTask {
       if (!isBannerVisible) {
         console.warn(`⚠️ [Pricing Coupon] Banner not visible on initial load; reloading with cache-buster...`);
         await page.goto(`${pricingRoute}?offer=${this.couponCode}&_cb=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-        await page.waitForLoadState('domcontentloaded');
+        await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
       }
 
       await expect(bannerLocator).toBeVisible({ timeout: 15000 });

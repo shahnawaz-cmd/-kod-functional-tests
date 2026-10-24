@@ -9,7 +9,7 @@ export class DefaultPlanPriceCheckTask {
     const page = actor.getPage();
 
     // 1. Inspect localStorage on initial site URL (e.g. homepage /)
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     let siteSettingsData = await page.evaluate(() => {
       const val = localStorage.getItem('site_settings');
       if (val) {
@@ -30,7 +30,7 @@ export class DefaultPlanPriceCheckTask {
       await actor.attemptsTo(new DecodeVinTask(false));
     }
 
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // 3. Inspect localStorage / NextData after landing on preview page
     const planData = siteSettingsData || await page.evaluate(async () => {

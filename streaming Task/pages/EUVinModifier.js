@@ -9,7 +9,7 @@ class EUVinModifier {
   async modifyEUVinByYMMUsingNo() {
     // 1. Wait for navigation from homepage to preview page
     await this.page.waitForURL(/.*(preview|vin-check).*/, { timeout: 30000 }).catch(() => {});
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // Self-Healing Strategy: Locate "No, fix it" / "Fix it" button with multi-selector fallback
     const noFixBtn = this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i })

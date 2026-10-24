@@ -27,7 +27,7 @@ export class PricingResponsiveUiTask {
 
     await test.step('Step 2: Capture Full Mobile Pricing Page Screenshot', async () => {
       // Smart wait: Ensure network is idle and layout is stable before triggering screenshot
-      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
       const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
       if (!fs.existsSync(screenshotDir)) {

@@ -87,7 +87,7 @@ class UrlSpaceHandlingTask {
 
     // Navigate to the URL containing space in VIN
     await this.page.goto(spacedUrl, { waitUntil: 'domcontentloaded', timeout });
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     await this.page.waitForTimeout(1500);
 
     // 5. Verify same VIN Error expected result

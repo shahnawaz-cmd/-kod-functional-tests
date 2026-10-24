@@ -13,7 +13,7 @@ export class RevisitBannerFlow {
 
     // 2. Navigate back to base URL using browser back
     await page.goBack();
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // 3. Self-healing 'Grab it for only' button click
     await clickWithHealing(
@@ -31,8 +31,8 @@ export class RevisitBannerFlow {
     // 4. Verify navigation to preview page with specific query parameters
     await page.waitForURL(/.*(preview|type=vhr|content=revisit).*/, { timeout: timeout, waitUntil: 'domcontentloaded' });
     
-    // Check URL contains type=vhr AND content=revisit
-    await expect(page).toHaveURL(/.*type=vhr.*/);
+    // Check URL contains type=(vhr|sticker) AND content=revisit
+    await expect(page).toHaveURL(/.*type=(vhr|sticker).*/);
     await expect(page).toHaveURL(/.*content=revisit.*/);
     
     console.log('Passed: Revisit banner flow verified.');

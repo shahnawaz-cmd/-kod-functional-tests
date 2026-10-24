@@ -56,7 +56,7 @@ export class PricingToCheckoutNavigationTask {
           }
         }
       }
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1000);
     });
 
@@ -182,7 +182,7 @@ export class PricingToCheckoutNavigationTask {
       );
 
       // Wait until document fully loads
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
       await page.waitForLoadState('load', { timeout: 15000 }).catch(() => {});
       await page.waitForTimeout(2000);
 

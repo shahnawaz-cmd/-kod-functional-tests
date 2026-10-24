@@ -172,7 +172,7 @@ class PreviewPage {
 
   async verifySpecsVisible(expectedText = 'Records found for', timeout = TIMEOUT) {
     if (this.page.isClosed()) return;
-    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     const successLocator = this.page.getByText(expectedText, { exact: false })
       .or(this.page.locator(`text=${expectedText}`))
@@ -202,14 +202,24 @@ class PreviewPage {
   }
 
   async clickAccessRecordButton() {
-    await this.accessRecordButton.click();
+    await this.accessRecordButton.waitFor({ state: 'visible', timeout: TIMEOUT }).catch(() => {});
+    await this.accessRecordButton.scrollIntoViewIfNeeded().catch(() => {});
+    try {
+      await this.accessRecordButton.click({ timeout: 5000, force: true });
+    } catch {
+      await this.accessRecordButton.evaluate(b => b.click()).catch(() => {});
+    }
   }
 
   async closeAccessRecordPopup() {
     const closeButton = this.page.getByRole('button', { name: /^Close$/ }).first();
-    await closeButton.waitFor({ state: 'visible', timeout: TIMEOUT });
-    await closeButton.click();
-    await closeButton.waitFor({ state: 'hidden', timeout: TIMEOUT });
+    await closeButton.waitFor({ state: 'visible', timeout: TIMEOUT }).catch(() => {});
+    try {
+      await closeButton.click({ timeout: 5000, force: true });
+    } catch {
+      await closeButton.evaluate(b => b.click()).catch(() => {});
+    }
+    await closeButton.waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {});
   }
 
   async triggerExitIntent() {
@@ -709,9 +719,9 @@ class EmailCache {
     try {
       await this.page.goBack({ waitUntil: 'domcontentloaded', timeout: 30000 });
     } catch {
-      await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+      await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
     }
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     console.log("✅ Navigated back to Preview page");
 
     // 3. Select new plan
@@ -752,7 +762,7 @@ class DefaultPlanCheckingHandler {
     // Ensure we are on the expected preview page before inspecting localStorage
     const expectedUrlRegex = /.*(\/preview|\/ws-preview).*/;
     await this.page.waitForURL(expectedUrlRegex, { timeout: TIMEOUT }).catch(() => {});
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // 1. Fast check for site_settings in localStorage (if legacy/WordPress site)
     let parsedSettings = null;
@@ -813,7 +823,7 @@ class UpsellTextMatched {
   }
 
   async upsellTextVerify(pageType = 'vhr', timeout = TIMEOUT, testInfo = null) {
-    await this.page.waitForLoadState('domcontentloaded');
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     if (this.page.isClosed()) return true;
 

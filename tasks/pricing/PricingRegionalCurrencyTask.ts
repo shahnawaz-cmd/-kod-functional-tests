@@ -101,7 +101,7 @@ export class PricingRegionalCurrencyTask {
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           await page.goto(fullPricingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          await page.waitForLoadState('domcontentloaded');
+          await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
           break;
         } catch (err: any) {
           if (attempt === 3) throw err;
@@ -194,7 +194,7 @@ export class PricingRegionalCurrencyTask {
         // If client hydration was delayed or initial HTML was served from static cache, reload once with cookies active
         console.warn(`⚠️ [UI Render] Currency not yet visible in DOM. Reloading to force rehydration...`);
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForLoadState('domcontentloaded');
+        await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
         await expect.poll(async () => {
           const pageText = await page.evaluate(() => document.body.innerText).catch(() => '');

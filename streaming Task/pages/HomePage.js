@@ -55,7 +55,7 @@ class HomePage {
   }
 
   async decodeVin(vin, numToReplace = 1) {
-    await this.page.waitForLoadState('domcontentloaded').catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     const isSafari = this.page.context().browser()?.browserType().name() === 'webkit';
 

@@ -25,7 +25,7 @@ class PayPalHandler {
   }
 
   async loginPayPal(popup, credentials, timeout = TIMEOUT) {
-    await popup.waitForLoadState('domcontentloaded');
+    await popup.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
     
     // Put email directly
     await popup.getByRole('textbox', { name: 'Email or mobile number' }).fill(credentials.email);

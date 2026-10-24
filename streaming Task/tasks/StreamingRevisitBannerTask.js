@@ -14,11 +14,11 @@ class StreamingRevisitBannerTask {
     if (previewPage && typeof previewPage.verifySpecsVisible === 'function') {
       await previewPage.verifySpecsVisible(expectedText);
     } else {
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     }
 
     // 3. Wait for preview page to settle
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(500);
 
     console.log('🔄 [StreamingRevisitBannerTask] Navigating back to base URL using browser back button...');
@@ -30,7 +30,7 @@ class StreamingRevisitBannerTask {
 
     try {
       await page.goBack();
-      await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
     } catch {
       await page.goto(targetFallback, { waitUntil: 'domcontentloaded' });
     }

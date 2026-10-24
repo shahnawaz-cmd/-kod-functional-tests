@@ -97,7 +97,7 @@ export class LPcases {
         timeout,
         waitUntil: 'domcontentloaded'
       });
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
       // 5. Complete pre-VIN check / goal prompt steps until the actual Preview page is loaded
       for (let i = 0; i < 5; i++) {

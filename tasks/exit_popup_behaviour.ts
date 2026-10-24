@@ -30,7 +30,7 @@ export class ExitPopupBehaviour {
       console.log('🔍 [ExitPopupBehaviour] Looking for sample links on preview page...');
 
       // Smart wait for preview page content to be stable
-      await page.waitForLoadState('domcontentloaded');
+      await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
       // Prioritize standalone sample links (e.g. "View Sample Window Sticker" and standalone "View Sample Report", avoiding inline upsell checkbox links)
       const sampleStickerLink = page.locator(

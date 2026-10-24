@@ -308,7 +308,7 @@ export class SessionIpStickinessTask {
       if (match) selectedRegion = match[0];
     }
 
-    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
     // 1. Initial Cookie Capture before injection
     await test.step('Step 1: Capture Pre-Injection Baseline Cookies', async () => {

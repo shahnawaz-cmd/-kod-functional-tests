@@ -19,31 +19,19 @@ class UnmappedYmmFallbackHandler {
   /**
    * Checks if the preview page shows an unmapped prompt or direct dropdown form
    */
-  async isUnmappedState() {
+  async isUnmappedState(timeout = 4000) {
     try {
-      // 1. Direct "Confirm your vehicle" heading or paragraph
-      const unmappedText = this.page.locator('h1, h2, h3, p, div')
+      const unmappedIndicator = this.page.locator('h1, h2, h3, p, div')
         .filter({ hasText: /Confirm your vehicle|We couldn'?t fully identify|Almost there/i })
+        .or(this.page.locator('input[placeholder*="Select year" i], [placeholder*="year" i]'))
+        .or(this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i }))
+        .or(this.page.locator('button:has-text("No"), button:has-text("Fix it")'))
         .first();
-      if (await unmappedText.isVisible({ timeout: 2000 }).catch(() => false)) {
-        return true;
-      }
 
-      // 2. Direct "Select year" dropdown
-      const selectYear = this.page.locator('input[placeholder*="Select year" i], [placeholder*="year" i]').first();
-      if (await selectYear.isVisible({ timeout: 1500 }).catch(() => false)) {
-        return true;
-      }
-
-      // 3. "No, Fix it" prompt button
-      const noFixBtn = this.page.getByRole('button', { name: /No.*Fix it|No, fix it|Fix it/i })
-        .or(this.page.locator('button:has-text("No"), button:has-text("Fix it")')).first();
-      if (await noFixBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-        return true;
-      }
-    } catch (e) {}
-
-    return false;
+      return await unmappedIndicator.waitFor({ state: 'visible', timeout }).then(() => true).catch(() => false);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -102,7 +90,7 @@ class UnmappedYmmFallbackHandler {
 
     let isDisabled = await input.isDisabled().catch(() => false);
     if (isDisabled) {
-      await expect(input).toBeEnabled({ timeout: 4000 }).catch(() => {});
+      await expect(input).toBeEnabled({ timeout: 12000 }).catch(() => {});
       isDisabled = await input.isDisabled().catch(() => false);
       if (isDisabled) {
         console.log(`ℹ️ [UnmappedYmmFallbackHandler] Dropdown "${textboxName}" is disabled, skipping.`);
@@ -114,13 +102,13 @@ class UnmappedYmmFallbackHandler {
     await this.page.waitForTimeout(400);
 
     const popover = this.page.locator('div[role="dialog"] div[class*="max-h-64"], div[class*="max-h-64"], div[role="listbox"]').first();
-    const hasPopover = await popover.waitFor({ state: 'visible', timeout: 4000 }).then(() => true).catch(() => false);
+    const hasPopover = await popover.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false);
     if (!hasPopover) return preferredValue || 'N/A';
 
     const options = popover.locator('button, div[class*="cursor-pointer"], [role="option"]')
       .filter({ hasNotText: /select|update|continue|confirm|click here|get records|reveal|back/i });
 
-    const hasOptions = await options.first().waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false);
+    const hasOptions = await options.first().waitFor({ state: 'visible', timeout: 8000 }).then(() => true).catch(() => false);
     if (hasOptions) {
       if (preferredValue) {
         const match = options.filter({ hasText: new RegExp(`^${preferredValue}$`, 'i') }).first();
