@@ -45,46 +45,12 @@ export class PricingRegionalCurrencyTask {
     const context = page.context();
     const { country, ip, expectedCurrency, name } = this.config;
 
-    await test.step(`Step 1: Inject Regional IP (${ip}) and Country (${country}) into Session Cookies`, async () => {
-      console.log('\n' + '─'.repeat(70));
-      console.log(`💉 [GEO INJECTOR] Selected Region: ${name} (Country: ${country}, IP: ${ip})`);
-      console.log(`🎯 [GEO INJECTOR] Target Currency Code: "${expectedCurrency}"`);
-      console.log('─'.repeat(70));
-
-      let targetURL = (testInfo?.project.use?.baseURL as string) || (page.url() !== 'about:blank' ? page.url() : '');
-      if (!targetURL || targetURL.includes('github.io') || targetURL.includes('windowsticker.com')) {
-        try {
-          const sites = require('../../sites.json');
-          const matched = sites.find((s: any) => testInfo?.project?.name?.includes(s.name));
-          targetURL = matched ? matched.url : 'https://toyotawindowsticker.com/';
-        } catch {
-          targetURL = 'https://toyotawindowsticker.com/';
-        }
-      }
-      if (!targetURL.endsWith('/')) targetURL += '/';
-
-      // Clear existing cookies to avoid domain collisions
-      await context.clearCookies().catch(() => {});
-
-      // Inject clean single-origin cookies (avoids duplicate root vs host cookie header collisions)
-      await context.addCookies([
-        { name: 'cwa_ip', value: ip, url: targetURL, sameSite: 'Lax' as const },
-        { name: 'cwa_country', value: country, url: targetURL, sameSite: 'Lax' as const }
-      ]);
-
-      // Set extra HTTP headers so all browser and API requests reliably carry regional geo context
-      await context.setExtraHTTPHeaders({
-        'cwa_country': country,
-        'cwa_ip': ip,
-        'X-Forwarded-For': ip
-      }).catch(() => {});
-    });
-
+    // Resolve target base URL cleanly
     let targetURL = (testInfo?.project.use?.baseURL as string) || (page.url() !== 'about:blank' ? page.url() : '');
-    if (!targetURL || targetURL.includes('github.io') || targetURL.includes('windowsticker.com')) {
+    if (!targetURL || targetURL.includes('github.io')) {
       try {
         const sites = require('../../sites.json');
-        const matched = sites.find((s: any) => testInfo?.project?.name?.includes(s.name));
+        const matched = sites.find((s: any) => testInfo?.project?.name && (testInfo.project.name.includes(s.name) || s.name.includes(testInfo.project.name)));
         targetURL = matched ? matched.url : 'https://toyotawindowsticker.com/';
       } catch {
         targetURL = 'https://toyotawindowsticker.com/';
@@ -92,12 +58,111 @@ export class PricingRegionalCurrencyTask {
     }
     if (!targetURL.endsWith('/')) targetURL += '/';
 
-    const isDVH = targetURL.includes('detailedvehiclehistory.com') || testInfo?.project?.name?.includes('DetailedVehicleHistory');
+    let hostname = 'toyotawindowsticker.com';
+    try {
+      hostname = new URL(targetURL).hostname;
+    } catch {}
+    const cleanHost = hostname.startsWith('.') ? hostname.slice(1) : hostname;
+    const parts = cleanHost.split('.');
+    const rootDomain = parts.length > 2 ? `.${parts.slice(-2).join('.')}` : `.${cleanHost}`;
+    const isSecure = targetURL.startsWith('https:');
+
+    const isDVH = targetURL.includes('detailedvehiclehistory.com') || (testInfo?.project?.name || '').includes('DetailedVehicleHistory');
     const pricingRoute = isDVH ? '/vin-check-rates' : '/pricing';
     const fullPricingUrl = new URL(pricingRoute.replace(/^\//, ''), targetURL).toString();
 
+    let capturedApiResponse: any = null;
+
+    await test.step(`Step 1: Inject Regional IP (${ip}) and Country (${country}) into Session Cookies`, async () => {
+      console.log('\n' + '─'.repeat(70));
+      console.log(`💉 [GEO INJECTOR] Selected Region: ${name} (Country: ${country}, IP: ${ip})`);
+      console.log(`🎯 [GEO INJECTOR] Target Currency Code: "${expectedCurrency}"`);
+      console.log(`🌐 [GEO INJECTOR] Host: ${cleanHost} | Root: ${rootDomain}`);
+      console.log('─'.repeat(70));
+
+      // Clear only pre-existing geo cookies to prevent collision without wiping checkout_flow
+      await context.clearCookies({ name: 'cwa_ip' }).catch(() => {});
+      await context.clearCookies({ name: 'cwa_country' }).catch(() => {});
+
+      // Inject cookies across host, root domain, and target URL to guarantee edge + client visibility
+      const cookies = [
+        {
+          name: 'cwa_ip',
+          value: ip,
+          domain: cleanHost,
+          path: '/',
+          secure: isSecure,
+          httpOnly: false,
+          sameSite: 'Lax' as const
+        },
+        {
+          name: 'cwa_country',
+          value: country,
+          domain: cleanHost,
+          path: '/',
+          secure: isSecure,
+          httpOnly: false,
+          sameSite: 'Lax' as const
+        },
+        {
+          name: 'cwa_ip',
+          value: ip,
+          domain: rootDomain,
+          path: '/',
+          secure: isSecure,
+          httpOnly: false,
+          sameSite: 'Lax' as const
+        },
+        {
+          name: 'cwa_country',
+          value: country,
+          domain: rootDomain,
+          path: '/',
+          secure: isSecure,
+          httpOnly: false,
+          sameSite: 'Lax' as const
+        },
+        {
+          name: 'cwa_ip',
+          value: ip,
+          url: targetURL,
+          sameSite: 'Lax' as const
+        },
+        {
+          name: 'cwa_country',
+          value: country,
+          url: targetURL,
+          sameSite: 'Lax' as const
+        }
+      ];
+
+      await context.addCookies(cookies);
+
+      // Set extra HTTP headers so all browser and API requests carry regional geo context
+      await context.setExtraHTTPHeaders({
+        'cwa_country': country,
+        'cwa_ip': ip,
+        'X-Forwarded-For': ip,
+        'CF-IPCountry': country
+      }).catch(() => {});
+    });
+
     await test.step(`Step 2: Reload Pricing Page (${fullPricingUrl}) with Regional Context`, async () => {
       console.log(`🔄 [Pricing] Navigating to ${fullPricingUrl} with regional session context...`);
+
+      // Set up network interception to capture the page's natural /api/pricing request during load
+      const apiWaitPromise = page.waitForResponse(
+        (res) => res.url().includes('/api/pricing') && res.status() === 200,
+        { timeout: 12000 }
+      ).then(async (res) => {
+        try {
+          const json = await res.json();
+          if (json && (json.stickerUser || json.reportUser)) {
+            capturedApiResponse = json;
+          }
+        } catch {}
+      }).catch(() => {});
+
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           await page.goto(fullPricingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -109,51 +174,82 @@ export class PricingRegionalCurrencyTask {
           await page.waitForTimeout(1500);
         }
       }
+
+      // Await natural API response if in flight
+      await apiWaitPromise;
       await page.waitForTimeout(500);
     });
 
     await test.step(`Step 3: Validate Pricing Currency Matches Expected Code (${expectedCurrency})`, async () => {
-      // 1. Backend validation via relative /api/pricing with session stabilization and edge retry
       let apiCurrencyCode = '';
       let apiCurrencySign = '';
       let firstPlan: any = null;
+      let lastObservedCode = '';
+      let lastAttemptStatus = 200;
 
-      await expect.poll(async () => {
-        let data: any = null;
-        try {
-          data = await page.evaluate(async () => {
-            const res = await fetch('/api/pricing?sticker=1&dealer=1');
-            return res.ok ? await res.json() : null;
-          });
-        } catch {}
+      // Extract first plan helper
+      const extractPlan = (data: any) => {
+        return data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0] || null;
+      };
 
-        if (!data) {
-          const response = await page.request.get(new URL('api/pricing?sticker=1&dealer=1', targetURL).toString(), {
-            headers: {
-              'Cookie': `cwa_ip=${ip}; cwa_country=${country}`,
-              'cwa_country': country,
-              'cwa_ip': ip,
-              'X-Forwarded-For': ip
-            }
-          }).catch(() => null);
-
-          if (response && response.status() === 200) {
-            data = await response.json().catch(() => null);
-          }
+      if (capturedApiResponse) {
+        firstPlan = extractPlan(capturedApiResponse);
+        if (firstPlan?.currency_code) {
+          lastObservedCode = firstPlan.currency_code;
         }
+      }
 
-        firstPlan = data?.stickerUser?.credit_plans?.[0] || data?.reportUser?.credit_plans?.[0];
-        return firstPlan?.currency_code;
-      }, {
-        message: `[CURRENCY MISMATCH] Expected currency code "${expectedCurrency}", but API returned "${firstPlan?.currency_code}"`,
-        timeout: 10000,
-        intervals: [1000, 2000]
-      }).toBe(expectedCurrency);
+      // If intercepted response already matches, we proceed directly without spamming fetches
+      if (lastObservedCode !== expectedCurrency) {
+        await expect.poll(async () => {
+          let data = capturedApiResponse;
 
-      apiCurrencyCode = firstPlan.currency_code;
-      apiCurrencySign = firstPlan.currency_sign;
+          // 1. Try in-browser fetch if not yet matching
+          if (!data || extractPlan(data)?.currency_code !== expectedCurrency) {
+            try {
+              data = await page.evaluate(async () => {
+                const res = await fetch('/api/pricing?sticker=1&dealer=1');
+                if (!res.ok) return null;
+                return await res.json();
+              });
+            } catch {}
+          }
 
-      console.log(`📡 [API Response] Currency Code: "${apiCurrencyCode}" | Sign: "${apiCurrencySign}" | Price: ${firstPlan.price}`);
+          // 2. Fallback to page.request if in-browser fetch didn't return expected currency
+          if (!data || extractPlan(data)?.currency_code !== expectedCurrency) {
+            try {
+              const response = await page.request.get(new URL('api/pricing?sticker=1&dealer=1', targetURL).toString(), {
+                headers: {
+                  'Cookie': `cwa_ip=${ip}; cwa_country=${country}`,
+                  'cwa_country': country,
+                  'cwa_ip': ip,
+                  'X-Forwarded-For': ip,
+                  'CF-IPCountry': country
+                }
+              });
+              lastAttemptStatus = response.status();
+              if (response.ok()) {
+                data = await response.json().catch(() => null);
+              }
+            } catch (reqErr: any) {
+              lastAttemptStatus = 0;
+            }
+          }
+
+          firstPlan = extractPlan(data);
+          lastObservedCode = firstPlan?.currency_code || '';
+          return lastObservedCode;
+        }, {
+          message: `[CURRENCY MISMATCH] Expected currency code "${expectedCurrency}" for region ${name} (${country}), but API returned currency: "${lastObservedCode || 'UNKNOWN'}" (HTTP ${lastAttemptStatus})`,
+          timeout: 15000,
+          intervals: [1000, 2000]
+        }).toBe(expectedCurrency);
+      }
+
+      apiCurrencyCode = firstPlan?.currency_code || lastObservedCode;
+      apiCurrencySign = firstPlan?.currency_sign || '';
+
+      console.log(`📡 [API Response] Currency Code: "${apiCurrencyCode}" | Sign: "${apiCurrencySign}" | Price: ${firstPlan?.price}`);
 
       // Currency symbols dictionary for multi-region rendering
       const CURRENCY_SYMBOLS: Record<string, string[]> = {

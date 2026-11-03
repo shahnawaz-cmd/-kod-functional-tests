@@ -19,6 +19,7 @@ on:
     paths:
       - 'tests/pricing_page.spec.ts'
       - 'tasks/pricing/**'
+      - 'fixtures/**'
     branches: [main]
   workflow_dispatch:
     inputs:
