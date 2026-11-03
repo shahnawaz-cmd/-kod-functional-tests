@@ -15,12 +15,6 @@ on:
   schedule:
     # Run daily at 06:00 UTC (before US business hours)
     - cron: '0 6 * * *'
-  push:
-    paths:
-      - 'tests/pricing_page.spec.ts'
-      - 'tasks/pricing/**'
-      - 'fixtures/**'
-    branches: [main]
   workflow_dispatch:
     inputs:
       site_filter:

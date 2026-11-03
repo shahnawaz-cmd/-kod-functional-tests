@@ -15,11 +15,6 @@ on:
   schedule:
     # Run daily at 12:00 UTC
     - cron: '0 12 * * *'
-  push:
-    paths:
-      - 'tests/session_ip_stickiness.spec.ts'
-      - 'tasks/SessionIpStickinessTask.ts'
-    branches: [main]
   workflow_dispatch:
     inputs:
       site_filter:

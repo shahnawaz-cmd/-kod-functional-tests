@@ -387,23 +387,16 @@ export class SessionIpStickinessTask {
 
     // 7. Capture Preview Screenshot & Close Page
     await test.step('Step 7: Capture Preview Screenshot and Close Page', async () => {
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
-
-      const screenshotFilename = `preview-sticky-session-${Date.now()}.png`;
-      const screenshotPath = path.join(screenshotDir, screenshotFilename);
-      const screenshotBuffer = await page.screenshot({ path: screenshotPath, fullPage: true });
-
       if (testInfo) {
-        await testInfo.attach('preview-sticky-session.png', {
-          body: screenshotBuffer,
-          contentType: 'image/png',
-        }).catch(() => {});
+        const screenshotBuffer = await page.screenshot({ fullPage: true }).catch(() => Buffer.from(''));
+        if (screenshotBuffer.length > 0) {
+          await testInfo.attach('preview-sticky-session', {
+            body: screenshotBuffer,
+            contentType: 'image/png',
+          }).catch(() => {});
+          console.log('📸 [SESSION STICKINESS] Preview screenshot attached natively to report.');
+        }
       }
-
-      console.log(`📸 [SESSION STICKINESS] Preview screenshot captured and saved to: ${screenshotPath}`);
     });
 
     return report;

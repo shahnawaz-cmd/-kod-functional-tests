@@ -1,7 +1,5 @@
 // tasks/pricing/PricingToCheckoutNavigationTask.ts
 import { Page, TestInfo, expect, test } from '@playwright/test';
-import * as fs from 'fs';
-import * as path from 'path';
 import {
   clickWithHealing,
   fastInputWithHealing,
@@ -189,17 +187,16 @@ export class PricingToCheckoutNavigationTask {
       checkoutUrl = page.url();
       console.log(`🔗 [Checkout URL Captured]: ${checkoutUrl}`);
 
-      // Ensure screenshots directory exists
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
+      // Capture screenshot in-memory and attach natively to report
+      if (testInfo) {
+        const screenshotBuffer = await page.screenshot({ fullPage: true }).catch(() => Buffer.from(''));
+        if (screenshotBuffer.length > 0) {
+          await testInfo.attach(`pricing-to-checkout-${effectivePlan}`, {
+            body: screenshotBuffer,
+            contentType: 'image/png'
+          }).catch(() => {});
+        }
       }
-
-      const timestamp = Date.now();
-      const filename = `pricing-to-checkout-${effectivePlan}-${timestamp}.png`;
-      const screenshotPath = path.join(screenshotDir, filename);
-
-      await page.screenshot({ path: screenshotPath, fullPage: true });
 
       // Print mandatory log in STDOUT
       console.log('\n' + '='.repeat(80));
@@ -207,16 +204,8 @@ export class PricingToCheckoutNavigationTask {
       console.log(`📧 User Email:    ${generatedEmail}`);
       console.log(`🎯 Plan Type:     ${effectivePlan}`);
       console.log(`🔗 Checkout URL:  ${checkoutUrl}`);
-      console.log(`📸 Screenshot:    ${screenshotPath}`);
+      console.log(`📸 Screenshot:    Attached natively to test report`);
       console.log('='.repeat(80) + '\n');
-
-      // Attach screenshot to Playwright / Allure report if testInfo provided
-      if (testInfo) {
-        await testInfo.attach('Pricing To Checkout Navigation', {
-          path: screenshotPath,
-          contentType: 'image/png'
-        });
-      }
 
       // Assert checkout URL validity
       expect(checkoutUrl).toMatch(/.*(checkout|payment|billing|order|purchase|summary).*/i);

@@ -15,11 +15,6 @@ on:
   schedule:
     # Run daily at 18:00 UTC
     - cron: '0 18 * * *'
-  push:
-    paths:
-      - 'tests/ui_ux_verification.spec.ts'
-      - 'tasks/ui_ux/**'
-    branches: [main]
   workflow_dispatch:
     inputs:
       site_filter:

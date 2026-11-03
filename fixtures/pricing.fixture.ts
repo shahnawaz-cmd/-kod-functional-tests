@@ -39,6 +39,7 @@ export async function resilientNavigateToPricing(page: Page, testInfo: TestInfo)
 /**
  * Executes task with automatic timeout recovery:
  * Real functional bugs fail immediately; transient network/socket stalls are retried once.
+ * Includes readiness guards to ensure business cards are visible before re-executing.
  */
 export async function executeShielded<T>(
   actionName: string,
@@ -49,23 +50,40 @@ export async function executeShielded<T>(
   try {
     return await fn();
   } catch (error: any) {
+    // Discriminate between functional defect vs environmental timeout
+    const isFunctionalDefect =
+      error?.name === 'AssertionError' ||
+      error?.message?.includes('expect(') ||
+      error?.message?.includes('toBe(') ||
+      error?.message?.includes('MISMATCH') ||
+      error?.message?.includes('[FAILURE]');
+
+    // If it's a real functional defect, fail immediately without masking it!
+    if (isFunctionalDefect) {
+      throw error;
+    }
+
     const isTimeout =
       error?.name === 'TimeoutError' ||
       error?.message?.toLowerCase().includes('timeout') ||
       error?.message?.toLowerCase().includes('target closed') ||
+      error?.message?.toLowerCase().includes('frame was detached') ||
       error?.message?.toLowerCase().includes('execution context was destroyed');
 
-    if (!isTimeout) throw error; // Real functional defect: fail immediately!
+    if (!isTimeout) throw error;
 
-    console.warn(`⚠️ [Timeout Shield] ${actionName} hit a transient stall. Recovering...`);
+    console.warn(`🛡️ [Timeout Shield Active] ${actionName} hit a transient infrastructure stall. Recovering...`);
     testInfo.annotations.push({
       type: 'warning',
-      description: `[Timeout Shield] Recovered transient timeout during ${actionName}`
+      description: `[Timeout Shield] Recovered transient timeout during ${actionName}: ${error?.message?.slice(0, 150)}`
     });
 
     try {
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-      await page.waitForTimeout(1500);
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+      await page.locator('*').filter({
+        hasText: /(Report|Sticker|Pricing|Plan|Basic|Silver|Personal|Business)/i
+      }).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      await page.waitForTimeout(1000);
     } catch {}
 
     return await fn();

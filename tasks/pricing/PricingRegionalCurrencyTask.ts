@@ -307,23 +307,13 @@ export class PricingRegionalCurrencyTask {
     });
 
     await test.step('Step 4: Capture Regional Currency Pricing Screenshot', async () => {
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
-
-      const filename = `pricing-${country.toLowerCase()}-${expectedCurrency.toLowerCase()}-${Date.now()}.png`;
-      const screenshotPath = path.join(screenshotDir, filename);
-      const buffer = await page.screenshot({ path: screenshotPath, fullPage: true });
-
       if (testInfo) {
-        await testInfo.attach(`pricing-${country}-${expectedCurrency}.png`, {
+        const buffer = await page.screenshot({ fullPage: true });
+        await testInfo.attach(`pricing-${country.toLowerCase()}-${expectedCurrency.toLowerCase()}`, {
           body: buffer,
           contentType: 'image/png',
         }).catch(() => {});
       }
-
-      console.log(`📸 [STDOUT SCREENSHOT] Regional pricing screenshot captured: ${screenshotPath}`);
     });
   }
 }

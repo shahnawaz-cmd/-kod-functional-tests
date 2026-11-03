@@ -137,23 +137,13 @@ export class PricingCouponDiscountTask {
     });
 
     await test.step('Step 4: Capture Coupon Banner & Discounted Pricing Screenshot', async () => {
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
-
-      const filename = `pricing-coupon-${this.couponCode}-${Date.now()}.png`;
-      const screenshotPath = path.join(screenshotDir, filename);
-      const buffer = await page.screenshot({ path: screenshotPath, fullPage: true });
-
       if (testInfo) {
-        await testInfo.attach(`pricing-coupon-${this.couponCode}.png`, {
+        const buffer = await page.screenshot({ fullPage: true });
+        await testInfo.attach(`pricing-coupon-${this.couponCode}`, {
           body: buffer,
           contentType: 'image/png',
         }).catch(() => {});
       }
-
-      console.log(`📸 [STDOUT SCREENSHOT] Coupon pricing screenshot captured: ${screenshotPath}`);
     });
   }
 }

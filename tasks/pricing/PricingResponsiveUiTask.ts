@@ -1,7 +1,5 @@
 // tasks/pricing/PricingResponsiveUiTask.ts
 import { Page, TestInfo, expect, test } from '@playwright/test';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export class PricingResponsiveUiTask {
   async performAs(page: Page, testInfo?: TestInfo) {
@@ -29,29 +27,21 @@ export class PricingResponsiveUiTask {
       // Smart wait: Ensure network is idle and layout is stable before triggering screenshot
       await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
 
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
-
-      const filename = `pricing-mobile-layout-${Date.now()}.png`;
-      const screenshotPath = path.join(screenshotDir, filename);
       let buffer: Buffer = Buffer.from('');
       try {
-        buffer = await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 15000 });
+        buffer = await page.screenshot({ fullPage: true, timeout: 15000 });
       } catch (err) {
         console.warn('⚠️ Full-page screenshot timed out on mobile viewport, capturing viewport screenshot...');
-        buffer = await page.screenshot({ path: screenshotPath, fullPage: false, timeout: 15000 }).catch(() => Buffer.from(''));
+        buffer = await page.screenshot({ fullPage: false, timeout: 15000 }).catch(() => Buffer.from(''));
       }
 
-      if (testInfo) {
-        await testInfo.attach('pricing-mobile-layout.png', {
+      if (testInfo && buffer.length > 0) {
+        await testInfo.attach('pricing-mobile-layout', {
           body: buffer,
           contentType: 'image/png',
         }).catch(() => {});
+        console.log('📸 [Mobile UI] Full-page mobile screenshot attached natively to report.');
       }
-
-      console.log(`📸 [Mobile UI] Full-page mobile screenshot saved to: ${screenshotPath}`);
     });
   }
 }
