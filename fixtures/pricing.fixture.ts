@@ -86,6 +86,12 @@ export function skipMobile(testInfo: TestInfo, tcName: string) {
   base.skip(isMobile, `${tcName} is configured for Desktop only`);
 }
 
+export function skipMultiCurrencyUnsupported(testInfo: TestInfo, tcName: string) {
+  skipMobile(testInfo, tcName);
+  const isLocked = ['VehicleHistoryEU', 'VINNumberCA'].some(site => testInfo.project.name.includes(site));
+  base.skip(isLocked, `Multi-currency is unsupported on ${testInfo.project.name} (locked currencies)`);
+}
+
 // ─────────────────────────────────────────────────────────────
 // 2. FIXTURE DEFINITIONS & DEPENDENCY INJECTION
 // ─────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ module.exports = defineConfig({
     navigationTimeout: 30000,
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    trace: 'on-first-retry',
+    trace: process.env.CI ? 'retain-on-failure' : 'on-first-retry',
   },
   reporter: [
     ['line'],

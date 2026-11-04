@@ -1,5 +1,5 @@
 // tests/pricing_page.spec.ts
-import { test, resilientNavigateToPricing, skipMobile } from '../fixtures/pricing.fixture';
+import { test, resilientNavigateToPricing, skipMobile, skipMultiCurrencyUnsupported } from '../fixtures/pricing.fixture';
 
 test.describe('Pricing Page Suite', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -43,10 +43,7 @@ test.describe('Pricing Page Suite', () => {
   test('TC_PRICING_05 — Verify random regional IP & country cookie injection updates pricing to relevant currency code',
     { tag: ['@desktop', '@pricing', '@multi-currency'] },
     async ({ pricingPage, regionalCurrencyTask }, testInfo) => {
-      skipMobile(testInfo, 'TC_PRICING_05');
-      const isLocked = ['VehicleHistoryEU', 'VINNumberCA'].some(site => testInfo.project.name.includes(site));
-      test.skip(isLocked, `Multi-currency disabled on ${testInfo.project.name}`);
-
+      skipMultiCurrencyUnsupported(testInfo, 'TC_PRICING_05');
       await regionalCurrencyTask.performAs(pricingPage, testInfo);
     }
   );

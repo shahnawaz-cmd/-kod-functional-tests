@@ -1,8 +1,6 @@
 // tasks/ui_ux/HorizontalOverflowTask.ts
 import { Page, TestInfo, expect, test } from '@playwright/test';
 import { Actor } from '../../actors/Actor';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export class HorizontalOverflowTask {
   async performAs(target: Actor | Page, testInfo?: TestInfo) {
@@ -62,12 +60,6 @@ export class HorizontalOverflowTask {
         };
       }, viewport.width);
 
-      // Prepare screenshots folder
-      const screenshotDir = path.resolve(process.cwd(), 'test-results', 'screenshots');
-      if (!fs.existsSync(screenshotDir)) {
-        fs.mkdirSync(screenshotDir, { recursive: true });
-      }
-
       let pageSlug = 'page';
       try {
         const pathname = new URL(page.url()).pathname.replace(/^\//, '').replace(/\/$/, '');
@@ -113,25 +105,19 @@ export class HorizontalOverflowTask {
           await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
         }
 
-        // Full page screenshot capturing the full layout with the red-bordered container
-        const fullPageFileName = `overflow-defect-fullpage-${pageSlug}-${viewport.width}px-${Date.now()}.png`;
-        const fullPageFilePath = path.join(screenshotDir, fullPageFileName);
-
+        // Capture in-memory full-page screenshot of the defect
         const defectBuffer = await page.screenshot({
-          path: fullPageFilePath,
           fullPage: true,
           scale: 'css',
           timeout: 30000
-        });
+        }).catch(() => Buffer.from(''));
 
-        // 🌟 Print exact full page screenshot path in STDOUT
-        console.log(`📸 [STDOUT PROOF] Red-Border Highlighted Full-Page Screenshot (${viewport.width}px): file:///${fullPageFilePath.replace(/\\/g, '/')}`);
-
-        if (testInfo) {
-          await testInfo.attach('overflow-defect-highlighted-fullpage.png', {
+        if (testInfo && defectBuffer.length > 0) {
+          await testInfo.attach(`overflow-defect-${pageSlug}-${viewport.width}px`, {
             body: defectBuffer,
             contentType: 'image/png'
           }).catch(() => {});
+          console.log(`📸 [UI/UX Proof] Red-Border Highlighted Full-Page Screenshot (${viewport.width}px) attached natively to report.`);
         }
 
         // Restore scroll position to top for clean state in subsequent tasks
@@ -187,15 +173,12 @@ export class HorizontalOverflowTask {
           document.body.appendChild(badge);
         }, viewport.width);
 
-        const fullPageProofName = `overflow-proof-aligned-fullpage-${pageSlug}-${viewport.width}px-${Date.now()}.png`;
-        const fullPageProofPath = path.join(screenshotDir, fullPageProofName);
-
+        // Capture in-memory full-page screenshot of aligned proof
         const proofBuffer = await page.screenshot({
-          path: fullPageProofPath,
           fullPage: true,
           scale: 'css',
           timeout: 30000
-        });
+        }).catch(() => Buffer.from(''));
 
         // Cleanup injected proof guides
         await page.evaluate(() => {
@@ -203,14 +186,12 @@ export class HorizontalOverflowTask {
           document.getElementById('viewport-alignment-proof-badge')?.remove();
         }).catch(() => {});
 
-        // 🌟 Print exact full page screenshot path in STDOUT
-        console.log(`📸 [STDOUT PROOF] Viewport Alignment Full-Page Screenshot (${viewport.width}px): file:///${fullPageProofPath.replace(/\\/g, '/')}`);
-
-        if (testInfo) {
-          await testInfo.attach('overflow-alignment-proof-fullpage.png', {
+        if (testInfo && proofBuffer.length > 0) {
+          await testInfo.attach(`overflow-aligned-${pageSlug}-${viewport.width}px`, {
             body: proofBuffer,
             contentType: 'image/png'
           }).catch(() => {});
+          console.log(`📸 [UI/UX Proof] Viewport Alignment Full-Page Screenshot (${viewport.width}px) attached natively to report.`);
         }
 
         expect.soft(bleedData.hasPageHorizontalScroll).toBe(false);
