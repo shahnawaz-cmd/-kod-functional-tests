@@ -41,10 +41,24 @@ async function globalSetup() {
   // Build and write host-resolver-rules map for Chromium to eliminate DNS drops in CI
   const fs = require('fs');
   const path = require('path');
-  const hostRules = [];
+  
+  // Extract a healthy Cloudflare cluster IP from fulfilled domains
+  const clusterIps = [];
   results.forEach(r => {
     if (r.status === 'fulfilled' && r.value?.addresses?.length) {
-      hostRules.push(`MAP ${r.value.host} ${r.value.addresses[0]}`);
+      clusterIps.push(...r.value.addresses);
+    }
+  });
+  const fallbackIp = clusterIps.find(ip => ip.startsWith('104.21.') || ip.startsWith('172.67.')) || '104.21.87.115';
+
+  const hostRules = [];
+  uniqueHosts.forEach((host, idx) => {
+    const r = results[idx];
+    if (r.status === 'fulfilled' && r.value?.addresses?.length) {
+      hostRules.push(`MAP ${host} ${r.value.addresses[0]}`);
+    } else {
+      console.warn(`   🛡️ [DNS Cluster Fallback] ${host} failed public resolution -> Mapped to Cloudflare edge ${fallbackIp}`);
+      hostRules.push(`MAP ${host} ${fallbackIp}`);
     }
   });
 

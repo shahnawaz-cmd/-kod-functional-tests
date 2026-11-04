@@ -2,6 +2,7 @@
 import { BrowserContext, Page, TestInfo, expect, test } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
+import { gotoWithResilience } from '../../utils/resilientNavigation';
 
 export interface RegionalConfig {
   country: string;
@@ -163,17 +164,11 @@ export class PricingRegionalCurrencyTask {
         } catch {}
       }).catch(() => {});
 
-      for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-          await page.goto(fullPricingUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
-          break;
-        } catch (err: any) {
-          if (attempt === 3) throw err;
-          console.warn(`⚠️ [Pricing Navigation Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
-          await page.waitForTimeout(1500);
-        }
-      }
+      await gotoWithResilience(page, fullPricingUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+        maxRetries: 3
+      });
 
       // Await natural API response if in flight
       await apiWaitPromise;

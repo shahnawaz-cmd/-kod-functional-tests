@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Actor } from '../actors/Actor';
 import { DecodeVinTask } from './DecodeVinTask';
+import { gotoWithResilience } from '../utils/resilientNavigation';
 
 export const IP_POOL = {
   KOREA: '79.110.55.34',             // South Korea (KR) - KRW (₩)
@@ -254,9 +255,9 @@ export class SessionIpStickinessTask {
     console.log(`📑 [SESSION STICKINESS] Opening Tab 2 in the same browser window`);
     console.log('═'.repeat(70));
 
-    // Open new tab in same browser context
+    // Open new tab in same browser context with resilient navigation
     const tab2 = await context.newPage();
-    await tab2.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+    await gotoWithResilience(tab2, targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     // Auto-retry checking cookie with expect.poll in secondary tab
     await expect.poll(async () => await this.getCwaIpValue(context), {
@@ -323,7 +324,7 @@ export class SessionIpStickinessTask {
     await test.step(`Step 2: Inject Target Regional IP [${selectedRegion}] (${selectedIp}) into Session Cookie`, async () => {
       await this.setCwaIpCookie(context, page.url(), selectedIp!);
       // Ensure page navigates with the newly injected session cookies active before reload checks
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
+      await gotoWithResilience(page, targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
     });
 
     // 3. Perform Multiple Refreshes in Tab 1

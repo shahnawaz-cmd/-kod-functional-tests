@@ -18,6 +18,11 @@ import { DefaultPlanPriceCheckTask } from '../tasks/default_plan_price_check';
 import { ClassicEditableSpecsUpdateOnly } from '../tasks/classic_editable_specs_update_only';
 import { ExitPopupBehaviour } from '../tasks/exit_popup_behaviour';
 import { ClarityVerificationTask } from '../tasks/ClarityVerificationTask';
+import { gotoWithResilience } from '../utils/resilientNavigation';
+
+const navigateHome = async (page: any) => {
+  await gotoWithResilience(page, '/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+};
 
 test.beforeEach(async ({ context, page }, testInfo) => {
   await context.clearCookies();
@@ -39,7 +44,7 @@ test.beforeEach(async ({ context, page }, testInfo) => {
 
 test('TC_01 VIN decode verify', async ({ page }) => {
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   
   // Perform the decoding task
@@ -49,7 +54,7 @@ test('TC_01 VIN decode verify', async ({ page }) => {
 test('TC_02 Verify error message on invalid search', async ({ page }) => {
   const actor = new Actor('User', page);
   // Navigate to the base URL
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
 
   const selectors = {
@@ -72,7 +77,7 @@ test('TC_03 VIN field validation', async ({ page }, testInfo) => {
   const timeout = process.env.CI ? 90000 : 60000;
   testInfo.setTimeout(timeout);
 
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   
   await actor.attemptsTo(new FieldValidation());
@@ -96,7 +101,7 @@ test('TC_06 Coupon banner on other pages', async ({ page }) => {
 test('TC_07 License Plate search validation', async ({ page }, testInfo) => {
   testInfo.setTimeout(process.env.CI ? 120000 : 90000);
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   await actor.attemptsTo(new LPcases());
 });
@@ -104,7 +109,7 @@ test('TC_07 License Plate search validation', async ({ page }, testInfo) => {
 test('TC_08 Revisit banner flow', async ({ page }, testInfo) => {
   testInfo.setTimeout(120000);
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   await actor.attemptsTo(new RevisitBannerFlow());
 });
@@ -129,7 +134,7 @@ test('TC_10 Exit intent banner verification', async ({ page }, testInfo) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
   });
 
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   
   // Trigger the exit intent pop-up logic
@@ -143,7 +148,7 @@ test('TC_11 Preview to checkout redirection', async ({ page }, testInfo) => {
   testInfo.setTimeout(process.env.CI ? 120000 : 90000);
 
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000);
   await actor.attemptsTo(new PreviewToCheckoutRedirection());
 });
@@ -155,7 +160,7 @@ test('TC_12 Classic editable specs feature validation', async ({ page, context }
 
   const actor = new Actor('User', page);
   await context.clearCookies();
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   await actor.attemptsTo(new ClassicEditableSpecs());
 });
@@ -169,7 +174,7 @@ test('TC_13 Global Exit Intent Preview Verification', async ({ page }, testInfo)
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
   });
 
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000); // 1 second delay
   
   // 1. Decode VIN to land on Preview page (with shouldClose set to false)
@@ -189,7 +194,7 @@ test('TC_13 Global Exit Intent Preview Verification', async ({ page }, testInfo)
 
 test('TC_14 EU VIN confirmation flow', async ({ page }) => {
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000);
   
   // 1. Decode VIN to land on Preview page (shouldClose = false, skipSuccessClick = true, useEuVin = true)
@@ -204,7 +209,7 @@ test('TC_16 Default plan price check verification', async ({ page }, testInfo) =
   test.skip(!isMobile, 'Skipping default plan price check verification on desktop; runs only on mobile devices');
 
   const actor = new Actor('User', page);
-  await page.goto('/');
+  await navigateHome(page);
   await page.waitForTimeout(1000);
   await actor.attemptsTo(new DefaultPlanPriceCheckTask());
 });
@@ -229,7 +234,7 @@ test('TC_17 Classic editable specs update only from preview validation', async (
 // 
 //   const actor = new Actor('User', page);
 //   try {
-//     await page.goto('/');
+//     await navigateHome(page);
 //     await page.waitForTimeout(1000);
 // 
 //     // 1. Decode VIN to land on Preview page

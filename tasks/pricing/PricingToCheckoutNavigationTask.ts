@@ -7,6 +7,7 @@ import {
   locateInputWithHealing
 } from '../../utils/selfHealingLocator';
 import { generateUniqueEmail } from '../../utils/emailGenerator';
+import { gotoWithResilience } from '../../utils/resilientNavigation';
 const { attachMockCheckoutRoute } = require('../../streaming Task/helpers/mockCheckout');
 
 export type PricingPlanType = 'report' | 'sticker' | 'any';
@@ -43,16 +44,11 @@ export class PricingToCheckoutNavigationTask {
       console.log('🌐 [Pricing to Checkout] Checking current URL...');
       if (!page.url().includes(pricingPath)) {
         console.log(`🔄 [Pricing to Checkout] Navigating to ${pricingPath}...`);
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            await page.goto(pricingPath, { waitUntil: 'domcontentloaded', timeout: 30000 });
-            break;
-          } catch (e: any) {
-            console.warn(`⚠️ [Pricing to Checkout] Navigation attempt ${attempt} failed (${e.message}). Retrying...`);
-            if (attempt === 3) throw e;
-            await page.waitForTimeout(2000);
-          }
-        }
+        await gotoWithResilience(page, pricingPath, {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+          maxRetries: 3
+        });
       }
       await page.waitForLoadState('domcontentloaded', { timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1000);

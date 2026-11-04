@@ -14,17 +14,14 @@ import {
   InputZoomGuardTask,
   MobileKeyboardTask
 } from '../tasks/ui_ux';
+import { gotoWithResilience } from '../utils/resilientNavigation';
 
-async function gotoWithRetry(page: any, url: string, retries: number = 2) {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      return await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    } catch (err: any) {
-      if (i === retries) throw err;
-      console.warn(`⚠️ [UI/UX] goto("${url}") failed (${err.message}). Retrying in 1.5s...`);
-      await page.waitForTimeout(1500);
-    }
-  }
+async function gotoWithRetry(page: any, url: string, retries: number = 3) {
+  return await gotoWithResilience(page, url, {
+    maxRetries: retries,
+    timeout: 30000,
+    waitUntil: 'domcontentloaded'
+  });
 }
 
 test.describe('UI/UX & Responsiveness Quality Audit', () => {

@@ -51,13 +51,24 @@ module.exports = defineConfig({
         const sites = require('./sites.json');
         const fs = require('fs');
         const path = require('path');
-        let dnsRules = '';
-        try {
+
+        function loadOrCreateDnsRules(siteList) {
           const rulesFile = path.resolve(__dirname, 'dns-rules.json');
-          if (fs.existsSync(rulesFile)) {
-            dnsRules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules || '';
-          }
-        } catch (e) {}
+          try {
+            if (fs.existsSync(rulesFile)) {
+              const parsed = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules;
+              if (parsed && parsed.length > 0) return parsed;
+            }
+          } catch (e) {}
+          // Startup Fallback: Ensure Chromium is never launched without Cloudflare Edge resolver rules
+          const fallbackEdgeIp = '104.21.87.115';
+          return (siteList || []).map(s => {
+            const host = (s.url || '').replace(/https?:\/\//, '').replace(/\/.*$/, '');
+            return host ? `MAP ${host} ${fallbackEdgeIp}` : null;
+          }).filter(Boolean).join(',');
+        }
+
+        const dnsRules = loadOrCreateDnsRules(sites);
 
         const commonArgs = [
           '--incognito',
@@ -123,6 +134,17 @@ module.exports = defineConfig({
           dnsRules = JSON.parse(fs.readFileSync(rulesFile, 'utf-8')).rules || '';
         }
       } catch (e) {}
+
+      if (!dnsRules) {
+        try {
+          const sites = require('./sites.json');
+          const fallbackEdgeIp = '104.21.87.115';
+          dnsRules = (sites || []).map(s => {
+            const host = (s.url || '').replace(/https?:\/\//, '').replace(/\/.*$/, '');
+            return host ? `MAP ${host} ${fallbackEdgeIp}` : null;
+          }).filter(Boolean).join(',');
+        } catch (e) {}
+      }
 
       const genericArgs = [
         '--incognito',

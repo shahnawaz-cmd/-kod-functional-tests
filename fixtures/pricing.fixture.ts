@@ -7,6 +7,7 @@ import { PricingResponsiveUiTask } from '../tasks/pricing/PricingResponsiveUiTas
 import { PricingRegionalCurrencyTask } from '../tasks/pricing/PricingRegionalCurrencyTask';
 import { PricingCouponDiscountTask } from '../tasks/pricing/PricingCouponDiscountTask';
 import { PricingToCheckoutNavigationTask } from '../tasks/pricing/PricingToCheckoutNavigationTask';
+import { gotoWithResilience, reloadWithResilience, isTransientNetworkError } from '../utils/resilientNavigation';
 
 // ─────────────────────────────────────────────────────────────
 // 1. INFRASTRUCTURE & NAVIGATION HELPERS
@@ -21,23 +22,16 @@ export function getPricingRoute(testInfo: TestInfo): string {
  */
 export async function resilientNavigateToPricing(page: Page, testInfo: TestInfo) {
   const route = getPricingRoute(testInfo);
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 25000 });
-      await page.locator('*').filter({
-        hasText: /(Report|Sticker|Pricing|Plan|Basic|Silver|Personal|Business)/i
-      }).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
-      return;
-    } catch (err: any) {
-      if (attempt === 3) throw err;
-      console.warn(`⚠️ [Navigation Retry] Attempt ${attempt} timed out. Retrying in 1.5s...`);
-      await page.waitForTimeout(1500);
-    }
-  }
+  await gotoWithResilience(page, route, {
+    timeout: 30000,
+    waitUntil: 'domcontentloaded',
+    maxRetries: 3,
+    readySelector: '*:has-text("Report"), *:has-text("Sticker"), *:has-text("Pricing"), *:has-text("Plan")'
+  });
 }
 
 /**
- * Executes task with automatic timeout recovery:
+ * Executes task with automatic timeout & network recovery:
  * Real functional bugs fail immediately; transient network/socket stalls are retried once.
  * Includes readiness guards to ensure business cards are visible before re-executing.
  */
@@ -63,28 +57,25 @@ export async function executeShielded<T>(
       throw error;
     }
 
-    const isTimeout =
-      error?.name === 'TimeoutError' ||
-      error?.message?.toLowerCase().includes('timeout') ||
-      error?.message?.toLowerCase().includes('target closed') ||
-      error?.message?.toLowerCase().includes('frame was detached') ||
-      error?.message?.toLowerCase().includes('execution context was destroyed');
+    const isNetworkOrTimeout = isTransientNetworkError(error);
+    if (!isNetworkOrTimeout) throw error;
 
-    if (!isTimeout) throw error;
-
-    console.warn(`🛡️ [Timeout Shield Active] ${actionName} hit a transient infrastructure stall. Recovering...`);
+    console.warn(`🛡️ [Timeout Shield Active] ${actionName} hit a transient infrastructure/network stall. Recovering...`);
     testInfo.annotations.push({
       type: 'warning',
-      description: `[Timeout Shield] Recovered transient timeout during ${actionName}: ${error?.message?.slice(0, 150)}`
+      description: `[Timeout Shield] Recovered transient issue during ${actionName}: ${error?.message?.slice(0, 150)}`
     });
 
     try {
-      await page.reload({ waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
-      await page.locator('*').filter({
-        hasText: /(Report|Sticker|Pricing|Plan|Basic|Silver|Personal|Business)/i
-      }).first().waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      await reloadWithResilience(page, {
+        timeout: 25000,
+        waitUntil: 'domcontentloaded',
+        readySelector: '*:has-text("Report"), *:has-text("Sticker"), *:has-text("Pricing"), *:has-text("Plan")'
+      });
       await page.waitForTimeout(1000);
-    } catch {}
+    } catch (recoveryErr: any) {
+      console.warn(`⚠️ [Timeout Shield] Recovery reload had issue: ${recoveryErr?.message}`);
+    }
 
     return await fn();
   }
