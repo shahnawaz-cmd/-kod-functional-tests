@@ -22,7 +22,7 @@ class PlateErrorTask {
   }
 
   /**
-   * Site filter: Runs for all sites.
+   * Site filter: Runs on all KOD domains (skip condition removed).
    */
   checkAllowedSites(testInfo) {
     return true;
@@ -101,24 +101,14 @@ class PlateErrorTask {
 
     for (let i = 0; i < strategies.length; i++) {
       try {
-        const loc = strategies[i]();
-        const count = await loc.count().catch(() => 0);
-        for (let j = 0; j < count; j++) {
-          const candidate = loc.nth(j);
-          if (await candidate.isVisible().catch(() => false)) {
-            return candidate;
-          }
+        const loc = strategies[i]().locator('visible=true').first();
+        if (await loc.isVisible({ timeout: 2000 }).catch(() => false)) {
+          return loc;
         }
       } catch (e) {}
     }
 
-    // Fallback: look for any visible text input inside the active search panel or on page
-    const visibleFallback = this.page.locator('.hero-search-panel:not([aria-hidden="true"]) input, form input[type="text"]:visible').first();
-    if (await visibleFallback.isVisible({ timeout: 1500 }).catch(() => false)) {
-      return visibleFallback;
-    }
-
-    return this.page.locator('input[name*="plate" i]:visible, input[placeholder*="plate" i]:visible').first();
+    return strategies[1]().first();
   }
 
   /**
@@ -196,22 +186,13 @@ class PlateErrorTask {
    * 7. Capture screenshot and attach to report
    */
   async execute(testInfo, timeout = TIMEOUT) {
-    // 1. Initial Site Check: Only run on IVR and VSR (skip on VNCA, MVL, VHREU)
+    // 1. Initial Site Check: Runs on all KOD sites
     const isAllowedSite = this.checkAllowedSites(testInfo);
     if (!isAllowedSite) return;
 
     // 2. Navigate & Initial Flow Detection: Only run if streaming flow is detected
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-        break;
-      } catch (err) {
-        if (attempt === 3) throw err;
-        console.warn(`⚠️ [PlateErrorTask DNS Retry] Attempt ${attempt} failed (${err?.message || err}). Retrying in 1.5s...`);
-        await this.page.waitForTimeout(1500);
-      }
-    }
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => {});
+    await this.page.goto('/');
+    await this.page.waitForLoadState('domcontentloaded');
     const isStreaming = await this.ensureStreamingFlow(testInfo);
     if (!isStreaming) return;
 
@@ -260,7 +241,7 @@ class PlateErrorTask {
       timeout
     });
     console.log(`📍 [PlateErrorTask] Landed on: ${this.page.url()}`);
-    await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }).catch(() => {});
+    await this.page.waitForLoadState('domcontentloaded');
     await this.page.waitForTimeout(1000);
 
     // 7. Verify Expected Error OR Skip on Decode Success (same condition as VIN error)
@@ -274,10 +255,10 @@ class PlateErrorTask {
       return;
     }
 
-    // Expected Error Locator (matches VIN error, Plate error, and unmapped Plate confirm prompt patterns)
+    // Expected Error Locator (matches VIN error & Plate error patterns)
     const errorLocator = this.page.locator('h1, h2, h3, p, div, span, [role="alert"]')
       .filter({
-        hasText: /We couldn'?t find a vehicle for that (license plate|plate|VIN)|Sorry\s*[-—–]\s*no record found|We couldn'?t fully identify|Confirm your vehicle/i
+        hasText: /We couldn'?t find a vehicle for that (license plate|plate|VIN)|Sorry\s*[-—–]\s*no record found/i
       })
       .first();
 

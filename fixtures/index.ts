@@ -7,4 +7,5 @@
 export * from './pricing.fixture';
 export * from './sessionStickiness.fixture';
 export * from './uiUx.fixture';
+export * from './streaming.fixture';
 export * from '../utils/resilientNavigation';

@@ -85,7 +85,7 @@ try {
   const sitesPath = path.resolve(process.cwd(), 'sites.json');
   if (fs.existsSync(sitesPath)) {
     const sites = JSON.parse(fs.readFileSync(sitesPath, 'utf8'));
-    siteCount = sites.length;
+    siteCount = sites.filter(s => !s.disabled && s.id !== 'bmw' && s.brand !== 'bmw').length;
   }
 } catch (e) {}
 

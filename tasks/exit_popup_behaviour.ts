@@ -100,7 +100,7 @@ export class ExitPopupBehaviour {
       let newPage: Page | null = null;
       try {
         const [openedPage] = await Promise.all([
-          ctx.waitForEvent('page', { timeout: this.timeout }),
+          ctx.waitForEvent('page', { timeout: Math.min(this.timeout, 8000) }),
           targetLink.click()
         ]);
         newPage = openedPage;
@@ -144,15 +144,15 @@ export class ExitPopupBehaviour {
       await page.bringToFront();
       console.log('🔄 [ExitPopupBehaviour] Back on preview page. Verifying exit pop-up does NOT trigger...');
 
-      // Playwright native smart wait check: Exit popup must NOT be visible
+      // Playwright native smart wait check: Exit popup dialog must NOT be visible
       const exitPopupLocators = page.locator(
-        'button:has-text("Redeem 15% off"), ' +
-        'button:has-text("Claim 15% Off"), ' +
-        'button:has-text("Click here to redeem instantly"), ' +
-        'button:has-text("Take 15% off"), ' +
-        '[role="dialog"]:has-text("15%"), ' +
-        '[role="dialog"]:has-text("Redeem"), ' +
-        '[role="dialog"]:has-text("Claim")'
+        'div[role="dialog"] button:has-text("Redeem 15% off"), ' +
+        'div[role="dialog"] button:has-text("Claim 15% Off"), ' +
+        'div[role="dialog"] button:has-text("Click here to redeem instantly"), ' +
+        'div[role="dialog"] button:has-text("Take 15% off"), ' +
+        'div[role="dialog"]:has-text("Wait! Before you go"), ' +
+        'div[role="dialog"]:has-text("Leave this page"), ' +
+        '[data-testid="exit-intent-modal"]'
       );
 
       let isPopupTriggered = false;

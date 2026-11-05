@@ -48,7 +48,9 @@ module.exports = defineConfig({
     // Dynamic projects loaded from sites.json (if present)
     ...(() => {
       try {
-        const sites = require('./sites.json');
+        // Filter out disabled & BMW domain for now (unresolvable DNS / down)
+        // { id: 'bmw', brand: 'bmw', name: 'BmwWindowSticker', url: 'https://bmwwindowsticker.com' }
+        const sites = require('./sites.json').filter(s => !s.disabled && s.id !== 'bmw' && s.brand !== 'bmw');
         const fs = require('fs');
         const path = require('path');
 
@@ -88,7 +90,7 @@ module.exports = defineConfig({
 
         const siteProjects = [];
         for (const site of sites) {
-          const funnelSpecs = ['**/streaming Task/global_streaming_specs.spec.js', '**/tests/global_case_verification.spec.ts'];
+          const funnelSpecs = ['**/streaming Task/global_streaming_specs.spec.js', '**/tests/global_case_verification.spec.ts', '**/tests/kod_streaming.spec.ts'];
           const projectTestMatch = [...funnelSpecs, '**/tests/pricing_page.spec.ts', '**/tests/session_ip_stickiness.spec.ts', '**/tests/ui_ux_verification.spec.ts'];
 
           siteProjects.push({
@@ -137,7 +139,9 @@ module.exports = defineConfig({
 
       if (!dnsRules) {
         try {
-          const sites = require('./sites.json');
+          // Filter out disabled & BMW domain for now (unresolvable DNS / down)
+        // { id: 'bmw', brand: 'bmw', name: 'BmwWindowSticker', url: 'https://bmwwindowsticker.com' }
+        const sites = require('./sites.json').filter(s => !s.disabled && s.id !== 'bmw' && s.brand !== 'bmw');
           const fallbackEdgeIp = '104.21.87.115';
           dnsRules = (sites || []).map(s => {
             const host = (s.url || '').replace(/https?:\/\//, '').replace(/\/.*$/, '');

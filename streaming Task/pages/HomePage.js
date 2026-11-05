@@ -12,6 +12,7 @@ class HomePage {
   }
 
   randomizeVin(baseVin, numToReplace = 1) {
+    if (!numToReplace || numToReplace <= 0) return baseVin;
     const randomDigits = Math.floor(Math.random() * Math.pow(10, numToReplace)).toString().padStart(numToReplace, '0');
     return baseVin.slice(0, -numToReplace) + randomDigits;
   }

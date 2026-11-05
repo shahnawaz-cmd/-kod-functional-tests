@@ -12,7 +12,7 @@ let ALL_DOMAINS = [
 try {
   const sites = require('../sites.json');
   if (Array.isArray(sites) && sites.length > 0) {
-    ALL_DOMAINS = sites.map(s => ({ name: s.name, url: s.url }));
+    ALL_DOMAINS = sites.filter(s => !s.disabled && s.id !== 'bmw' && s.brand !== 'bmw').map(s => ({ name: s.name, url: s.url }));
   }
 } catch (e) {}
 

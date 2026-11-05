@@ -1,6 +1,7 @@
 // global-setup.js
 const dns = require('dns');
-const sites = require('./sites.json');
+// Filter out disabled & BMW domain for now (unresolvable DNS / down)
+const sites = require('./sites.json').filter(s => !s.disabled && s.id !== 'bmw' && s.brand !== 'bmw');
 
 async function globalSetup() {
   console.log('🌐 [Global DNS Pre-warm] Pre-resolving production domains before workers launch...');

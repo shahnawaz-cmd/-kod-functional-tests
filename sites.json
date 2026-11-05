@@ -87,7 +87,8 @@
     "id": "bmw",
     "brand": "bmw",
     "name": "BmwWindowSticker",
-    "url": "https://bmwwindowsticker.com"
+    "url": "https://bmwwindowsticker.com",
+    "disabled": true
   },
   {
     "id": "jeep",
