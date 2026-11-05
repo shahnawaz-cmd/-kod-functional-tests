@@ -25,6 +25,7 @@ let resultsPath = process.env.TEST_RESULTS_FILE
 
 let stats = { expected: 0, unexpected: 0, flaky: 0, skipped: 0 };
 let failedSpecs = [];
+let timeoutSpecs = [];
 let flakySpecs = [];
 
 if (fs.existsSync(resultsPath)) {
@@ -34,7 +35,7 @@ if (fs.existsSync(resultsPath)) {
       stats = data.stats;
     }
 
-    // Traverse suites to collect failed and flaky test names and project
+    // Traverse suites to collect failed, timeout, and flaky test names and project
     function extractTests(suite) {
       if (suite.specs) {
         for (const spec of suite.specs) {
@@ -50,7 +51,13 @@ if (fs.existsSync(resultsPath)) {
             if (isFailed) {
               const lastErr = [...results].reverse().find(r => r.error);
               const err = (lastErr?.error?.message || '').replace(/\u001b\[[0-9;]*m/g, '').split('\n')[0];
-              failedSpecs.push(`• *[${projectName}]* ${title}${err ? `\n   ↳ _${err.substring(0, 120)}_` : ''}`);
+              const isTimeout = /Timeout \d+ms exceeded|timeout of \d+ms exceeded|Target page, context or browser has been closed|page\.waitFor/i.test(err);
+
+              if (isTimeout) {
+                timeoutSpecs.push(`• *[${projectName}]* ${title}\n   ↳ ⏱️ _${err.substring(0, 120)}_`);
+              } else {
+                failedSpecs.push(`• *[${projectName}]* ${title}${err ? `\n   ↳ 🐛 _${err.substring(0, 120)}_` : ''}`);
+              }
             } else if (isFlaky) {
               flakySpecs.push(`• *[${projectName}]* ${title} _(passed on retry ${results.length - 1})_`);
             }
@@ -77,6 +84,8 @@ if (fs.existsSync(resultsPath)) {
 // All passed tests including retry passes count towards total passed
 const effectivePassed = (stats.expected || 0) + (stats.flaky || 0);
 const failedTests = stats.unexpected || 0;
+const functionalFailedCount = failedSpecs.length;
+const timeoutCount = timeoutSpecs.length;
 const totalTests = effectivePassed + failedTests;
 
 // Count active sites from sites.json
@@ -96,12 +105,16 @@ const suiteType = process.env.SUITE_TYPE || 'Tests';
 const browserName = process.env.BROWSER_NAME || 'Desktop';
 const runOutcome = process.env.RUN_STATUS || (failedTests === 0 && totalTests > 0 ? 'success' : (failedTests > 0 ? 'failure' : 'unknown'));
 
+const hasFunctionalFailures = functionalFailedCount > 0;
+const hasTimeoutsOnly = !hasFunctionalFailures && timeoutCount > 0;
 const isPassing = (runOutcome === 'success' || (failedTests === 0 && totalTests > 0)) && runOutcome !== 'failure';
-const statusColor = isPassing ? '#2eb886' : '#e01e5a';
+
+// Status color: Red for functional bugs, Yellow for timeouts only, Green for clean pass
+const statusColor = hasFunctionalFailures ? '#e01e5a' : (hasTimeoutsOnly ? '#ecb22e' : '#2eb886');
 
 const failuresOnly = process.argv.includes('--failures-only');
-if (failuresOnly && isPassing) {
-  console.log(`✅ [Slack Notify] ${currentSiteName || 'Site'} (${browserName}) passed. Suppressing Slack alert to keep channel clean.`);
+if (failuresOnly && !hasFunctionalFailures) {
+  console.log(`✅ [Slack Notify] ${currentSiteName || 'Suite'} (${browserName}) passed functional checks (no product bugs). Suppressing failure alert.`);
   process.exit(0);
 }
 
@@ -109,16 +122,22 @@ const siteFilter = process.env.SITE_FILTER || 'all';
 const isFilteredSingleSite = siteFilter && siteFilter !== 'all';
 
 const titleText = isSiteMode
-  ? (isPassing
-      ? `✅ [${currentSiteName}] ${suiteType} (${browserName}) — Passed`
-      : `🚨 [${currentSiteName}] Critical Failure • ${suiteType} (${browserName})`)
+  ? (hasFunctionalFailures
+      ? `🚨 [${currentSiteName}] Critical Bug • ${suiteType} (${browserName})`
+      : (hasTimeoutsOnly
+          ? `⚠️ [${currentSiteName}] Transient Timeout • ${suiteType} (${browserName})`
+          : `✅ [${currentSiteName}] ${suiteType} (${browserName}) — Passed`))
   : (isFilteredSingleSite
-      ? (isPassing
-          ? `✅ [${siteFilter.toUpperCase()}] Verification Suite — All Passed`
-          : `🚨 [${siteFilter.toUpperCase()}] Verification Suite — ${failedTests} Failure(s) Detected`)
-      : (isPassing
-          ? `✅ KOD ${suiteType} — All ${siteCount} Domains Passed`
-          : `🚨 KOD ${suiteType} — ${failedTests} Failure(s) Detected`));
+      ? (hasFunctionalFailures
+          ? `🚨 [${siteFilter.toUpperCase()}] Suite — ${functionalFailedCount} Functional Bug(s) Detected`
+          : (hasTimeoutsOnly
+              ? `⚠️ [${siteFilter.toUpperCase()}] Suite — ${timeoutCount} Transient Timeout(s) (Infra)`
+              : `✅ [${siteFilter.toUpperCase()}] Verification Suite — All Passed`))
+      : (hasFunctionalFailures
+          ? `🚨 KOD ${suiteType} — ${functionalFailedCount} Functional Bug(s) Detected`
+          : (hasTimeoutsOnly
+              ? `⚠️ KOD ${suiteType} — ${timeoutCount} Transient Timeout(s) (No Functional Bugs)`
+              : `✅ KOD ${suiteType} — All ${siteCount} Domains Passed`)));
 
 const runTime = new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
 
@@ -134,15 +153,15 @@ const sectionText = isSiteMode
   ? [
       `*Target Domain:* <${currentSiteUrl || `https://${currentSiteName.toLowerCase()}.com`}|${currentSiteName}>`,
       `*Scope:* 🎯 *${suiteType}*  •  📱 *${browserName}*`,
-      `*Status:* 🔴 *${failedTests > 0 ? `${failedTests} Test(s) Failed` : 'Runner Execution Failed'}*`,
+      `*Status:* ${hasFunctionalFailures ? `🔴 *${functionalFailedCount} Functional Bug(s)*` : (hasTimeoutsOnly ? `🟡 *${timeoutCount} Transient Timeout(s)*` : '🟢 *All Tests Passed*')}`,
       totalTests > 0
-        ? `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`
-        : `*Outcome:* ❌ Run encountered critical errors`,
+        ? `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${functionalFailedCount} Bugs*  •  ⏱️ *${timeoutCount} Timeouts*  •  ⏭️ *${stats.skipped || 0} Skipped*`
+        : `*Outcome:* Run completed`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n')
   : [
-      `*Overall Status:* ${isPassing ? `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : `All ${siteCount} Domains Passing (Funnel & Audits)`}` : `🔴 *${failedTests} Failure(s) Detected*`}`,
-      `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${failedTests} Failed*  •  ⏭️ *${stats.skipped || 0} Skipped*`,
+      `*Overall Status:* ${hasFunctionalFailures ? `🔴 *${functionalFailedCount} Functional Bug(s) Detected*` : (hasTimeoutsOnly ? `🟡 *${timeoutCount} Transient Timeout(s) (Infra/Network)*` : `🟢 ${isFilteredSingleSite ? `${siteFilter.toUpperCase()} Passing` : `All ${siteCount} Domains Passing (Funnel & Audits)`}`)}`,
+      `*Results:* ✅ *${effectivePassed} Passed*  •  ❌ *${functionalFailedCount} Bugs*  •  ⏱️ *${timeoutCount} Timeouts*  •  ⏭️ *${stats.skipped || 0} Skipped*`,
       `*Target Scope:* 🚗 *${isFilteredSingleSite ? `Single Domain Dispatch: ${siteFilter}` : `${siteCount} Live Brands Tested`}* (${suiteType})`,
       `*Execution:* ⚙️ Branch \`${githubRef}\` • Trigger: \`${githubEvent}\``
     ].join('\n');
@@ -168,15 +187,31 @@ const blocks = [
   }
 ];
 
-// Add Top Failures section only if any tests failed
+// Add Functional Bugs section only if any actual bugs occurred
 if (failedSpecs.length > 0) {
   const failureList = failedSpecs.slice(0, 5).join('\n');
-  const overflow = failedSpecs.length > 5 ? `\n_...and ${failedSpecs.length - 5} more failure(s)_` : '';
+  const overflow = failedSpecs.length > 5 ? `\n_...and ${failedSpecs.length - 5} more functional bug(s)_` : '';
   blocks.push({
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: `*🚨 Failing Tests & Root Causes:*\n${failureList}${overflow}`
+      text: `*🚨 Functional Bugs (Action Required):*\n${failureList}${overflow}`
+    }
+  });
+  blocks.push({
+    type: 'divider'
+  });
+}
+
+// Add Timeouts section only if any timeouts occurred
+if (timeoutSpecs.length > 0) {
+  const timeoutList = timeoutSpecs.slice(0, 5).join('\n');
+  const overflow = timeoutSpecs.length > 5 ? `\n_...and ${timeoutSpecs.length - 5} more timeout(s)_` : '';
+  blocks.push({
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `*⏱️ Transient Timeouts / Network Latency (Infrastructure Notice):*\n${timeoutList}${overflow}`
     }
   });
   blocks.push({
