@@ -12,9 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  schedule:
-    # Run daily at 18:00 UTC
-    - cron: '0 18 * * *'
   workflow_dispatch:
     inputs:
       site_filter:
