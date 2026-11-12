@@ -255,4 +255,65 @@ export class ContactUsTask {
       expect(cleanOptions, `Dropdown should contain option "${expected}"`).toContain(expected);
     }
   }
+
+  /**
+   * Verifies Full Form Submission & Server Action Payload via Route Mocking (QA-Only)
+   * Intercepts the backend server action POST request, verifies field payloads, and responds with success.
+   */
+  static async verifySubmissionAndBackendPayload(page: Page, data: ContactFormData) {
+    let capturedPayload: any = null;
+    let postUrl = '';
+
+    // 1. Intercept the Next.js Server Action / Backend POST request
+    await page.route('**/contact-us**', async (route) => {
+      const req = route.request();
+      if (req.method() === 'POST') {
+        postUrl = req.url();
+        try {
+          capturedPayload = JSON.parse(req.postData() || '[]');
+        } catch {
+          capturedPayload = req.postData();
+        }
+
+        // Fulfill with a clean 200 OK
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/x-component',
+          body: '0:{"success":true,"message":"Thank you! Your message has been sent."}\n'
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    // 2. Fill the contact form
+    await this.fillForm(page, data);
+
+    // 3. Click the Submit button
+    const submitBtn = this.getSubmitButton(page);
+    await submitBtn.waitFor({ state: 'visible', timeout: 5000 });
+    await submitBtn.click();
+
+    // 4. Wait for submission network exchange to conclude
+    await page.waitForTimeout(2000);
+
+    // 5. Assert the backend request was submitted
+    expect(capturedPayload, 'Backend submission POST request should have been dispatched to server').toBeTruthy();
+
+    // 6. Validate the exact payload fields submitted to backend
+    const formData = Array.isArray(capturedPayload) ? capturedPayload[0] : capturedPayload;
+    console.log(`\n======================================================`);
+    console.log(`📤  [BACKEND SUBMISSION PAYLOAD VERIFIED]`);
+    console.log(`   Endpoint  : ${postUrl}`);
+    console.log(`   Name      : ${formData?.name}`);
+    console.log(`   Email     : ${formData?.email}`);
+    console.log(`   Concern   : ${formData?.concern}`);
+    console.log(`   Message   : ${formData?.message}`);
+    console.log(`======================================================\n`);
+
+    expect(formData?.name, 'Submitted name in server payload should match').toBe(data.name);
+    expect(formData?.email, 'Submitted email in server payload should match').toBe(data.email);
+    expect(formData?.concern, 'Submitted concern in server payload should match').toBe(data.concern);
+    expect(formData?.message, 'Submitted message in server payload should match').toBe(data.message);
+  }
 }

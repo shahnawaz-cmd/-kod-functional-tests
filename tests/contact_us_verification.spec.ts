@@ -50,4 +50,16 @@ test.describe('Contact Us & reCAPTCHA Verification Suite', () => {
       await expect(contactUsTask.getMessageTextarea(contactUsPage)).toHaveValue('Automated test verification of contact form input responsiveness.');
     }
   );
+
+  test('TC_CONTACT_06 — Verify form submission and backend payload dispatch (QA Route Mocking)',
+    { tag: ['@contact', '@backend-payload', '@submission'] },
+    async ({ contactUsPage, contactUsTask }) => {
+      await contactUsTask.verifySubmissionAndBackendPayload(contactUsPage, {
+        name: 'QA Automation Engineer',
+        email: 'qa.automation@empirepixel.com',
+        concern: 'Support',
+        message: 'Verifying backend server action receives complete form submission payload.'
+      });
+    }
+  );
 });
