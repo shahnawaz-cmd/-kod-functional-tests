@@ -77,6 +77,8 @@ module.exports = defineConfig({
           '--dns-result-order=ipv4first',
           '--no-sandbox',
           '--disable-setuid-sandbox',
+          '--disable-blink-features=AutomationControlled',
+          '--disable-infobars',
           ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
         ];
 
@@ -91,7 +93,7 @@ module.exports = defineConfig({
         const siteProjects = [];
         for (const site of sites) {
           const funnelSpecs = ['**/streaming Task/global_streaming_specs.spec.js', '**/tests/global_case_verification.spec.ts', '**/tests/kod_streaming.spec.ts'];
-          const projectTestMatch = [...funnelSpecs, '**/tests/pricing_page.spec.ts', '**/tests/session_ip_stickiness.spec.ts', '**/tests/ui_ux_verification.spec.ts'];
+          const projectTestMatch = [...funnelSpecs, '**/tests/pricing_page.spec.ts', '**/tests/session_ip_stickiness.spec.ts', '**/tests/ui_ux_verification.spec.ts', '**/tests/contact_us_verification.spec.ts'];
 
           siteProjects.push({
             name: site.name,
@@ -155,6 +157,8 @@ module.exports = defineConfig({
         '--dns-result-order=ipv4first',
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-infobars',
         ...(dnsRules ? [`--host-resolver-rules=${dnsRules}`] : [])
       ];
 

@@ -17,7 +17,15 @@ class HomePage {
     return baseVin.slice(0, -numToReplace) + randomDigits;
   }
 
-  async navigate() {
+  async navigate(testInfo = null) {
+    // Stealth: Mask automation signatures before loading
+    await this.page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      (window).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: () => {} };
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    }).catch(() => {});
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         await this.page.goto('/', { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -28,7 +36,25 @@ class HomePage {
         await this.page.waitForTimeout(1500);
       }
     }
+
+    // Cloudflare Challenge check: Fast detect & report if gated by Turnstile
+    await this.checkCloudflare(testInfo);
     await this.page.waitForTimeout(800);
+  }
+
+  async checkCloudflare(testInfo = null) {
+    const isCf = await this.page.locator(
+      '#challenge-running, #challenge-stage, .cf-turnstile, text=/Verify you are human/i, text=/Just a moment\\.\\.\\./i'
+    ).first().isVisible({ timeout: 1500 }).catch(() => false);
+
+    if (isCf) {
+      console.warn(`🛡️ [Cloudflare Guard] Managed challenge detected on: ${this.page.url()}`);
+      if (testInfo && typeof testInfo.skip === 'function') {
+        testInfo.skip(true, 'Blocked by Cloudflare Managed Challenge');
+      }
+      return true;
+    }
+    return false;
   }
 
   async navigateWithOffer(offerCode) {

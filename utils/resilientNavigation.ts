@@ -33,6 +33,40 @@ export function isTransientNetworkError(error: any): boolean {
 }
 
 /**
+ * Detects if Cloudflare Managed Challenge or Turnstile is gating the page
+ */
+export async function checkCloudflareChallenge(page: Page, testInfo?: any): Promise<boolean> {
+  const isCf = await page.locator(
+    '#challenge-running, #challenge-stage, .cf-turnstile, [data-sitekey], text=/Verify you are human/i, text=/Just a moment\\.\\.\\./i, text=/Checking your browser/i'
+  ).first().isVisible({ timeout: 1500 }).catch(() => false);
+
+  if (isCf) {
+    const url = page.url();
+    console.warn(`🛡️ [Cloudflare Guard] Managed challenge detected on: ${url}`);
+    if (testInfo && typeof testInfo.attach === 'function') {
+      const screenshot = await page.screenshot({ fullPage: false }).catch(() => null);
+      if (screenshot) {
+        await testInfo.attach('Cloudflare_Challenge_Screenshot', {
+          body: screenshot,
+          contentType: 'image/png'
+        }).catch(() => {});
+      }
+      if (Array.isArray(testInfo.annotations)) {
+        testInfo.annotations.push({
+          type: 'warning',
+          description: `[Cloudflare Guard] Site ${url} is gated by Cloudflare Turnstile. Skipped cleanly.`
+        });
+      }
+      if (typeof testInfo.skip === 'function') {
+        testInfo.skip(true, 'Blocked by Cloudflare Managed Challenge');
+      }
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
  * Resilient Navigation (Layer 4 Utility)
  * Shields tests against transient DNS drops, Cloudflare socket stalls, and network resets.
  */
@@ -50,9 +84,22 @@ export async function gotoWithResilience(
 
   let lastError: any = null;
 
+  // Stealth: Ensure automation flags are masked on the page
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    (window as any).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: () => {} };
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+  }).catch(() => {});
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const response = await page.goto(url, { waitUntil, timeout });
+
+      // Cloudflare Guard: Fast detect challenge if gated
+      await checkCloudflareChallenge(page);
+
+      // Business Ready Anchor: Ensure page DOM has committed interactive elements
 
       // Business Ready Anchor: Ensure page DOM has committed interactive elements
       if (readySelector) {

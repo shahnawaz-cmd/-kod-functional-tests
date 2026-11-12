@@ -89,6 +89,7 @@ class PreviewPage {
     // Use flexible locator to match Access Record, Reveal Records, Get Full Report, or primary action CTA
     this.accessRecordButton = page.locator('button:has-text("Access Record"), button:has-text("Reveal Records"), button:has-text("Get Full Report"), button:has-text("Get Report")')
       .or(page.getByRole('button', { name: /access record|reveal records|get full report|get report/i }))
+      .filter({ hasNotText: /Where should we send/i })
       .first();
   }
 
@@ -535,47 +536,110 @@ class PreviewPage {
     const startTime = Date.now();
     console.log('\n--- [CHECKOUT NAVIGATION FLOW] Initiating Preview -> Checkout ---');
 
+    const generatedEmail = PreviewPage.generateUniqueEmail();
+    const generatedPhone = PreviewPage.generateUsPhoneNumber();
+
+    // Check if inline email form inside plan card / accordion is present
+    const inlineAccordion = this.page.getByRole('button', { name: /Where should we send your Sticker\??/i }).first();
+    const isAccordionVisible = await inlineAccordion.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    let emailInput = this.page.locator('input[type="email"]').first();
+    let phoneInput = this.page.locator('input[type="tel"]').first();
+
+    if (isAccordionVisible) {
+      console.log('📬 [Inline Plan Flow] Detected inline email container / accordion. Expanding if collapsed...');
+      const isEmailVisible = await emailInput.isVisible().catch(() => false);
+      if (!isEmailVisible) {
+        await inlineAccordion.click({ force: true }).catch(() => {});
+        await this.page.waitForTimeout(500);
+      }
+    }
+
+    // If email input is visible inline (in plan card or page)
+    if (await emailInput.isVisible({ timeout: 2000 }).catch(() => false)) {
+      console.log(`📝 [Inline Form] Entering credentials directly in plan card:`);
+      console.log(`   ├─ Email: ${generatedEmail}`);
+      console.log(`   └─ Phone: ${generatedPhone}`);
+
+      await emailInput.fill(generatedEmail);
+      if (await phoneInput.isVisible().catch(() => false)) {
+        await phoneInput.fill(generatedPhone);
+      }
+
+      console.log('🚀 [Step 2/2] Clicking "Access Records" and awaiting Checkout navigation...');
+      const submitBtn = this.page.getByRole('button', { name: /^Access Records?$|^Access Record$/i })
+        .or(this.page.locator('button:has-text("Access Records"), button:has-text("Access Record")'))
+        .filter({ hasNotText: /Where should we send/i })
+        .first();
+
+      await submitBtn.waitFor({ state: 'visible', timeout: 10000 });
+      await submitBtn.scrollIntoViewIfNeeded().catch(() => {});
+
+      try {
+        await Promise.all([
+          this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+          submitBtn.click({ timeout: 15000 }).catch(async () => {
+            await submitBtn.click({ force: true }).catch(() => {});
+          }),
+        ]);
+
+        const duration = Date.now() - startTime;
+        console.log(`✅ [Navigation Success] Transitioned to Checkout in ${duration}ms!`);
+        console.log(`   └─ Landed on: ${this.page.url()}\n`);
+        return;
+      } catch (navError) {
+        await this.diagnoseCheckoutNavigationFailure(navError, startTime);
+        return;
+      }
+    }
+
+    // --- Legacy / Modal Checkout Flow Fallback ---
     // 1. Click Access Record
-    console.log('🔘 [Step 1/3] Clicking "Access Record" button...');
+    console.log('🔘 [Legacy Modal Step 1/3] Clicking "Access Record" button...');
     await this.clickAccessRecordButton();
 
     // 2. Wait for email popup and fill details
-    const emailInput = this.page.locator('input[type="email"]').first();
-    const phoneInput = this.page.locator('input[type="tel"]').first();
+    emailInput = this.page.locator('input[type="email"]').first();
+    phoneInput = this.page.locator('input[type="tel"]').first();
 
     await emailInput.waitFor({ state: 'visible', timeout: TIMEOUT });
 
-    const generatedEmail = PreviewPage.generateUniqueEmail();
-    const generatedPhone = PreviewPage.generateUsPhoneNumber();
-    console.log(`📝 [Step 2/3] Email modal visible. Entering credentials:`);
+    console.log(`📝 [Legacy Modal Step 2/3] Email modal visible. Entering credentials:`);
     console.log(`   ├─ Email: ${generatedEmail}`);
     console.log(`   └─ Phone: ${generatedPhone}`);
 
     await emailInput.fill(generatedEmail);
-    await phoneInput.fill(generatedPhone);
+    if (await phoneInput.isVisible().catch(() => false)) {
+      await phoneInput.fill(generatedPhone);
+    }
 
     // 3. Click Proceed to checkout and wait for navigation
     const proceedBtn = this.page.getByRole('button', { name: /proceed to checkout/i })
       .or(this.page.locator('button:has-text("Proceed to Checkout")')).first();
-    await proceedBtn.waitFor({ state: 'visible', timeout: 15000 });
-    await proceedBtn.scrollIntoViewIfNeeded().catch(() => {});
+    
+    // Some sites directly navigate upon Access Record or use Proceed to Checkout
+    const isProceedVisible = await proceedBtn.isVisible({ timeout: 5000 }).catch(() => false);
+    if (isProceedVisible) {
+      await proceedBtn.scrollIntoViewIfNeeded().catch(() => {});
+      console.log('🚀 [Legacy Modal Step 3/3] Clicking "Proceed to Checkout" and awaiting URL transition...');
 
-    console.log('🚀 [Step 3/3] Clicking "Proceed to Checkout" and awaiting URL transition...');
+      try {
+        await Promise.all([
+          this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
+          proceedBtn.click({ timeout: 15000 }).catch(async () => {
+            await proceedBtn.click({ force: true }).catch(() => {});
+          }),
+        ]);
 
-    try {
-      await Promise.all([
-        this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT }),
-        proceedBtn.click({ timeout: 15000 }).catch(async () => {
-          // Fallback force click if animations or overlay intercepted
-          await proceedBtn.click({ force: true }).catch(() => {});
-        }),
-      ]);
-
-      const duration = Date.now() - startTime;
-      console.log(`✅ [Navigation Success] Transitioned to Checkout in ${duration}ms!`);
-      console.log(`   └─ Landed on: ${this.page.url()}\n`);
-    } catch (navError) {
-      await this.diagnoseCheckoutNavigationFailure(navError, startTime);
+        const duration = Date.now() - startTime;
+        console.log(`✅ [Navigation Success] Transitioned to Checkout in ${duration}ms!`);
+        console.log(`   └─ Landed on: ${this.page.url()}\n`);
+      } catch (navError) {
+        await this.diagnoseCheckoutNavigationFailure(navError, startTime);
+      }
+    } else {
+      // If no proceed button, clicking access record or submitting modal navigates directly
+      await this.page.waitForURL(/.*\/checkout(?:-\d+)?.*/, { waitUntil: 'domcontentloaded', timeout: TIMEOUT });
     }
   }
 

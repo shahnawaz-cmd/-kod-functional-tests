@@ -121,6 +121,14 @@ export const test = base.extend<StreamingFixtures>({
       await client.send('Network.setCacheDisabled', { cacheDisabled: true }).catch(() => {});
     }
 
+    // Stealth: Mask automation markers before any page script executes
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+      (window as any).chrome = { runtime: {}, loadTimes: () => {}, csi: () => {}, app: () => {} };
+      Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+      Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+    }).catch(() => {});
+
     const isClarityTest = testInfo.title.toLowerCase().includes('clarity');
     const trackerPattern = isClarityTest
       ? /.*(google-analytics\.com|hotjar\.com|connect\.facebook\.net|snap\.licdn\.com).*/i

@@ -179,5 +179,83 @@
     "brand": "infiniti",
     "name": "InfinitiWindowSticker",
     "url": "https://infinitiwindowsticker.com"
+  },
+  {
+    "id": "nissan",
+    "brand": "nissan",
+    "name": "NissanWindowSticker",
+    "url": "https://nissanwindowsticker.com"
+  },
+  {
+    "id": "harleydavidson",
+    "brand": "harleydavidson",
+    "name": "HarleyDavidsonWindowStickers",
+    "url": "https://harleydavidsonwindowstickers.com"
+  },
+  {
+    "id": "landrover",
+    "brand": "landrover",
+    "name": "LandRoverWindowSticker",
+    "url": "https://landroverwindowsticker.com"
+  },
+  {
+    "id": "tesla",
+    "brand": "tesla",
+    "name": "TeslaWindowStickers",
+    "url": "https://teslawindowstickers.com"
+  },
+  {
+    "id": "bentley",
+    "brand": "bentley",
+    "name": "BentleyWindowSticker",
+    "url": "https://bentleywindowsticker.com"
+  },
+  {
+    "id": "lamborghini",
+    "brand": "lamborghini",
+    "name": "LamborghiniWindowSticker",
+    "url": "https://lamborghiniwindowsticker.com"
+  },
+  {
+    "id": "genesis",
+    "brand": "genesis",
+    "name": "GenesisWindowSticker",
+    "url": "https://genesiswindowsticker.com"
+  },
+  {
+    "id": "mazda",
+    "brand": "mazda",
+    "name": "MazdaWindowSticker",
+    "url": "https://mazdawindowsticker.com"
+  },
+  {
+    "id": "rollsroyce",
+    "brand": "rollsroyce",
+    "name": "RollsRoyceWindowSticker",
+    "url": "https://rollsroycewindowsticker.com"
+  },
+  {
+    "id": "rangerover",
+    "brand": "rangerover",
+    "name": "RangeRoverWindowSticker",
+    "url": "https://rangeroverwindowsticker.com"
+  },
+  {
+    "id": "jaguar",
+    "brand": "jaguar",
+    "name": "JaguarWindowSticker",
+    "url": "https://jaguarwindowsticker.com"
+  },
+  {
+    "id": "astonmartin",
+    "brand": "astonmartin",
+    "name": "AstonMartinWindowSticker",
+    "url": "https://astonmartinwindowsticker.com"
+  },
+  {
+    "id": "ferrari",
+    "brand": "ferrari",
+    "name": "FerrariWindowSticker",
+    "url": "https://ferrariwindowsticker.com"
   }
 ]

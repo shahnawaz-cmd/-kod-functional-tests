@@ -51,6 +51,19 @@ on:
           - minicooper
           - fordlookup
           - infiniti
+          - nissan
+          - harley
+          - landrover
+          - tesla
+          - bentley
+          - lamborghini
+          - genesis
+          - mazda
+          - rollsroyce
+          - rangerover
+          - jaguar
+          - astonmartin
+          - ferrari
 
 env:
   UV_THREADPOOL_SIZE: 64

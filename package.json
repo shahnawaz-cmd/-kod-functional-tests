@@ -10,6 +10,7 @@
     "test:streaming": "npx playwright test \"streaming Task/global_streaming_specs.spec.js\"",
     "test:non-streaming": "npx playwright test tests/global_case_verification.spec.ts",
     "test:pricing": "npx playwright test tests/pricing_page.spec.ts",
+    "test:contact": "npx playwright test tests/contact_us_verification.spec.ts",
     "test:ip": "npx playwright test tests/session_ip_stickiness.spec.ts",
     "test:ui-ux": "npx playwright test tests/ui_ux_verification.spec.ts",
     "test:standalone": "npx playwright test tests/session_ip_stickiness.spec.ts tests/pricing_page.spec.ts tests/ui_ux_verification.spec.ts",
